@@ -56,7 +56,7 @@ mkdir -p "$PROFILE_DIR" build/export
 PROFILE_PATH="$PROFILE_DIR/$PROFILE_UUID.mobileprovision"
 [[ ! -e "$PROFILE_PATH" ]] || { echo 'Profile path already exists; refusing to overwrite.'; PROFILE_PATH=''; exit 2; }
 cp "$WORK/profile.mobileprovision" "$PROFILE_PATH"
-swift scripts/GenerateAppIcon.swift
+python3 scripts/GenerateAppIcon.py
 xcodegen generate
 BUILD_NUMBER="${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}"
 xcodebuild -project WorldEXE.xcodeproj -scheme WorldEXE -configuration Release \

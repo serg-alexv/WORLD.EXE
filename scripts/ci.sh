@@ -7,7 +7,7 @@ xcodegen --version | tee -a build/toolchain.txt
 swift --version | tee -a build/toolchain.txt
 git rev-parse HEAD > build/commit.txt
 swift test --package-path WorldCore 2>&1 | tee build/core-tests.log
-swift scripts/GenerateAppIcon.swift
+python3 scripts/GenerateAppIcon.py
 xcodegen generate
 xcrun simctl list devices available --json > build/simulators.json
 SIMULATOR_ID=$(python3 - <<'PY'
