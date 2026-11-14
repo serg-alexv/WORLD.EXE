@@ -1,0 +1,20 @@
+name: WorldEXE
+options:
+  bundleIdPrefix: org.worldexe
+settings:
+  base:
+    SWIFT_VERSION: 5.0
+    IPHONEOS_DEPLOYMENT_TARGET: 18.0
+targets:
+  WorldEXE:
+    type: application
+    platform: iOS
+    sources: [App]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: org.worldexe.prototype
+        TARGETED_DEVICE_FAMILY: "1"
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_NSCameraUsageDescription: "Camera access is used to scan room geometry."
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        CODE_SIGN_STYLE: Automatic
