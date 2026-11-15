@@ -66,7 +66,7 @@ struct SignalSiegeScreen: View {
             .sheet(isPresented: $showRankings) { SiegeRankingsScreen(store: store, tone: humor) }
             .sheet(isPresented: $showRules) { rules }
             .alert("Start a fresh session?", isPresented: $confirmReplay) {
-                Button("Replay") { startSession() }.accessibilityIdentifier("siege.confirmReplay")
+                Button("Start fresh session") { startSession() }.accessibilityIdentifier("siege.confirmReplay")
                 Button("Cancel", role: .cancel) {}
             } message: { Text("Current tactical progress will be replaced. Local rankings stay saved.") }
             .onAppear { seedText = String(mission.seed); difficulty = mission.difficulty }
@@ -273,7 +273,7 @@ private struct SiegeRankingsScreen: View {
             }.navigationTitle("Local top 10")
                 .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Close") { dismiss() }.accessibilityIdentifier("siege.rankingsClose") } }
                 .confirmationDialog("Clear all local rankings?", isPresented: $confirmClear, titleVisibility: .visible) {
-                    Button("Clear rankings", role: .destructive) { store.clearRankings() }.accessibilityIdentifier("siege.confirmClear")
+                    Button("Erase saved rankings", role: .destructive) { store.clearRankings() }.accessibilityIdentifier("siege.confirmClear")
                 }
         }.tint(Palette.teal)
     }

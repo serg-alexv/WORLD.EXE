@@ -9,7 +9,11 @@ struct HomeView: View {
     @StateObject private var siege: SignalSiegeStore
     @Environment(\.scenePhase) private var scenePhase
     @State private var showEvidence = false
-    init() {
+    private let onExit: (() -> Void)?
+    @State private var leaving = false
+    init(initialMode: Int = 0, onExit: (() -> Void)? = nil) {
+        self.onExit = onExit
+        _mode = State(initialValue: initialMode)
         let persist = !ProcessInfo.processInfo.arguments.contains("-ui-testing")
         let journal = EvidenceStore(persist: persist)
         _evidence = StateObject(wrappedValue: journal)
@@ -32,6 +36,21 @@ struct HomeView: View {
                         .font(.system(size: 10, design: .monospaced)).foregroundStyle(Palette.teal)
                 }
                 Spacer()
+                if onExit != nil {
+                    Button {
+                        guard !leaving else { return }
+                        leaving = true; mode = 0
+                        room.suspendForWorkspaceExit()
+                        Task { @MainActor in
+                            await brain.unload()
+                            // The button is disabled during active native work, so unload completes here.
+                            guard !brain.isBusy && !brain.isLoaded else { leaving = false; return }
+                            evidence.flush(); onExit?(); leaving = false
+                        }
+                    } label: { Image(systemName: "square.grid.2x2").font(.title2) }
+                    .disabled(leaving || brain.isBusy || room.scanning || room.processing || game.moving)
+                    .accessibilityLabel("Fusion home").accessibilityIdentifier("fusion.home")
+                }
                 Button { showEvidence = true } label: { Image(systemName: "list.bullet.rectangle").font(.title2) }
                     .accessibilityLabel("Наблюдения и телеметрия").accessibilityIdentifier("evidence.open")
                 Button { help = true } label: { Image(systemName: "questionmark.circle").font(.title2) }

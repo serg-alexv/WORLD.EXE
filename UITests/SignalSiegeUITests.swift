@@ -33,7 +33,9 @@ final class SignalSiegeUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["siege.status"].label.contains("AP 4/4"))
         reveal(app.buttons["siege.replay"], in: app)
         app.buttons["siege.replay"].tap()
-        app.alerts.buttons["Replay"].tap()
+        let dialog = app.alerts.firstMatch
+        XCTAssertTrue(dialog.waitForExistence(timeout: 5))
+        dialog.buttons["Start fresh session"].firstMatch.tap()
         for _ in 0..<7 { if app.staticTexts["siege.status"].isHittable { break }; app.swipeDown() }
         XCTAssertTrue(app.staticTexts["siege.status"].label.contains("TURN 1"))
         app.buttons["siege.close"].tap()
@@ -52,7 +54,8 @@ final class SignalSiegeUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["siege.rankingsScope"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["siege.noScores"].exists)
         app.buttons["siege.clearRankings"].tap()
-        app.buttons["Clear rankings"].tap()
+        let confirm = app.buttons["Erase saved rankings"].firstMatch
+        XCTAssertTrue(confirm.waitForExistence(timeout: 5)); confirm.tap()
         XCTAssertTrue(app.staticTexts["siege.rankingStatus"].label.contains("cleared"))
         app.buttons["siege.rankingsClose"].tap()
         XCTAssertTrue(app.buttons["siege.close"].exists)
