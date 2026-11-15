@@ -37,6 +37,17 @@ class CheckpointScopeTests(unittest.TestCase):
         checkpoint.safe_content('.github/workflows/release.yml',
                                 b'key: ${{ secrets.ASC_PRIVATE_KEY_P8_BASE64 }}', True)
 
+    def test_personal_client_code_only(self):
+        for name in ['PersonalClient/Core/Package.swift', 'PersonalClient/App/FeedViews.swift',
+                     'PersonalClient/Core/Sources/FeedDomain/Models.swift',
+                     'PersonalClient/project.yml', 'PersonalClient/App/PrivacyInfo.xcprivacy']:
+            self.assertTrue(checkpoint.allowed(name, False), name)
+        for name in ['PersonalClient/Imports/hornet.json', 'PersonalClient/App/archive.json',
+                     'PersonalClient/Core/Tests/private.csv', 'PersonalClient/App/model.gguf',
+                     'PersonalClient/App/PrivateData/content.swift', 'PersonalClient/Generated/Info.plist',
+                     'PersonalClient/Core/.build/debug/map.json', 'PersonalClient/App/key.p8']:
+            self.assertFalse(checkpoint.allowed(name, True), name)
+
     def test_size_limit(self):
         with self.assertRaises(ValueError):
             checkpoint.safe_content('App/Large.swift', b'x' * (2 * 1024 * 1024 + 1), True)
