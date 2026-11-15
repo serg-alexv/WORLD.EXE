@@ -16,7 +16,7 @@ final class TacticalNarrator: ObservableObject {
         briefing = snapshot.recommended.reason
         source = "Deterministic tactical engine"
         #if canImport(FoundationModels)
-        if #available(iOS 26.0, *) {
+        if #available(iOS 26.0, *), SpatialPerformanceBudget.allowOptionalInference {
             guard case .available = SystemLanguageModel.default.availability else { return }
             isThinking = true
             defer { isThinking = false }
