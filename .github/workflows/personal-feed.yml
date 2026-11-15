@@ -22,15 +22,25 @@ concurrency:
 jobs:
   personal-feed:
     runs-on: macos-15
-    timeout-minutes: 35
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - uses: maxim-lobanov/setup-xcode@1242409711ff5721add51979e9e11e23ebb7e5a4
         with:
           xcode-version: '26.3'
       - run: brew install xcodegen
-      - name: Test isolated data boundaries, storage, demo UI and device target
-        run: bash scripts/personal_feed_ci.sh
+      - name: Architecture guards and portable feed tests
+        timeout-minutes: 5
+        run: bash scripts/personal_feed_ci.sh core
+      - name: Compile private client and native test targets
+        timeout-minutes: 12
+        run: bash scripts/personal_feed_ci.sh simulator
+      - name: Encrypted storage, HTTP isolation and synthetic demo UI
+        timeout-minutes: 18
+        run: bash scripts/personal_feed_ci.sh ui
+      - name: Compile unsigned device app and preserve identity receipt
+        timeout-minutes: 8
+        run: bash scripts/personal_feed_ci.sh device
       - name: Preserve synthetic-only validation evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

@@ -4,15 +4,20 @@ cd "$(dirname "$0")/.."
 ROOT="$PWD"
 OUT="$ROOT/build/personal-feed"
 mkdir -p "$OUT/screenshots"
+core() {
 git rev-parse HEAD > "$OUT/commit.txt"
 xcodebuild -version > "$OUT/toolchain.txt"
 python3 -m unittest discover -s scripts/tests -p 'test_personal_feed_*.py' -v 2>&1 | tee "$OUT/architecture-tests.log"
 swift test --package-path PersonalClient/Core 2>&1 | tee "$OUT/core-tests.log"
 swift test --package-path PersonalClient/Core -c release -Xswiftc -Osize 2>&1 | tee "$OUT/core-release-tests.log"
+}
+simulator() {
 xcodegen generate --spec PersonalClient/project.yml --project PersonalClient
 xcodebuild -project PersonalClient/PersonalFeed.xcodeproj -scheme PersonalFeed -configuration Debug \
   -destination 'generic/platform=iOS Simulator' -derivedDataPath "$OUT/DerivedData" \
   -resultBundlePath "$OUT/BuildForTesting.xcresult" CODE_SIGNING_ALLOWED=NO build-for-testing 2>&1 | tee "$OUT/simulator-build.log"
+}
+ui() {
 xcrun simctl list devices available --json > "$OUT/simulators.json"
 export FEED_OUT="$OUT"
 SIM_ID=$(python3 - <<'PY'
@@ -40,6 +45,8 @@ xcodebuild -project PersonalClient/PersonalFeed.xcodeproj -scheme PersonalFeed -
   -test-timeouts-enabled YES -default-test-execution-time-allowance 180 \
   -maximum-test-execution-time-allowance 240 CODE_SIGNING_ALLOWED=NO test-without-building 2>&1 | tee "$OUT/ios-tests.log"
 xcrun xcresulttool export attachments --path "$OUT/TestResults.xcresult" --output-path "$OUT/screenshots/test-attachments"
+}
+device() {
 xcodebuild -project PersonalClient/PersonalFeed.xcodeproj -scheme PersonalFeed -configuration Release \
   -destination 'generic/platform=iOS' -derivedDataPath "$OUT/DeviceData" \
   CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY='' build 2>&1 | tee "$OUT/device-build.log"
@@ -59,3 +66,12 @@ Native Hornet export schema: NOT verified; only explicitly mapped CSV/JSON suppo
 Physical-device biometric protection / networking: NOT verified by simulator.
 TestFlight: NOT published by this workflow. Device artifact is unsigned.
 RECEIPT
+}
+case "${1:-all}" in
+  core) core ;;
+  simulator) simulator ;;
+  ui) ui ;;
+  device) device ;;
+  all) core; simulator; ui; device ;;
+  *) echo 'Expected core, simulator, ui, device or all'; exit 2 ;;
+esac

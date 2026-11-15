@@ -69,6 +69,19 @@ final class PersonalFeedTests: XCTestCase {
         XCTAssertNil(MockFeedProtocol.request?.value(forHTTPHeaderField: "Authorization"))
         XCTAssertNil(MockFeedProtocol.request?.httpBody)
     }
+    func testTransportDoesNotReuseCompletedConsent() async throws {
+        MockFeedProtocol.configure(status: 200, mime: "application/json", data: Data("{}".utf8))
+        let client = FeedTransport(testProtocol: MockFeedProtocol.self)
+        let url = URL(string: "https://feed-test.invalid/feed.json")!
+        _ = try await client.get(url)
+        do { _ = try await client.get(url); XCTFail("Transport silently reused") } catch {}
+    }
+    func testCancelBeforeStartDoesNotSendRequest() async {
+        MockFeedProtocol.configure(status: 200, mime: "application/json", data: Data("{}".utf8))
+        let client = FeedTransport(testProtocol: MockFeedProtocol.self); client.cancel()
+        do { _ = try await client.get(URL(string: "https://feed-test.invalid/feed.json")!); XCTFail("Cancelled operation started") } catch {}
+        XCTAssertNil(MockFeedProtocol.request)
+    }
     func testHTTPErrorNotImported() async {
         MockFeedProtocol.configure(status: 403, mime: "application/json", data: Data("{}".utf8))
         do { _ = try await FeedTransport(testProtocol: MockFeedProtocol.self).get(URL(string: "https://feed-test.invalid/feed.json")!); XCTFail("HTTP failure accepted") } catch {}
