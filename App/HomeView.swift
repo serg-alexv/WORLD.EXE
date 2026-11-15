@@ -18,6 +18,7 @@ struct HomeView: View {
     }
     @State private var showContact = false
     @State private var showBrain = false
+    @State private var showSiege = false
     @State private var mode = 0
     @State private var help = false
     var body: some View {
@@ -42,6 +43,8 @@ struct HomeView: View {
                     .buttonStyle(.bordered).accessibilityIdentifier("openGGUF")
                     .disabled(room.scanning || room.processing)
             }.font(.caption.bold()).frame(minHeight: 44)
+            Button("SIGNAL SIEGE · Tactical Ops / Qwen NPC / Top 10") { showSiege = true }
+                .buttonStyle(.bordered).accessibilityIdentifier("siege.open")
             Picker("Expedition mode", selection: $mode) {
                 Text("Training").tag(0)
                 Text("LiDAR").tag(1)
@@ -57,6 +60,7 @@ struct HomeView: View {
         .background(Palette.background).tint(Palette.teal)
         .sheet(isPresented: $help) { InstructionsScreen() }
         .sheet(isPresented: $showBrain) { BrainScreen(brain: brain) }
+        .sheet(isPresented: $showSiege) { SignalSiegeScreen(brain: brain) }
         .fullScreenCover(isPresented: $showContact) { ContactScreen(room: room, brain: brain, evidence: evidence) }
         .sheet(isPresented: $showEvidence) { EvidenceScreen(store: evidence) }
         .onChange(of: scenePhase) { _, phase in if phase != .active { evidence.flush() } }
