@@ -11,6 +11,7 @@ core() {
   touch build/core.ok
 }
 simulator() {
+  bash scripts/prepare_llama.sh
   python3 scripts/GenerateAppIcon.py
   xcodegen generate
   xcodebuild -project WorldEXE.xcodeproj -scheme WorldEXE -configuration Debug \

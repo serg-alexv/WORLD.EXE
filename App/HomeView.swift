@@ -4,6 +4,9 @@ import WorldCore
 struct HomeView: View {
     @StateObject private var game = GameStore(persist: !ProcessInfo.processInfo.arguments.contains("-ui-testing"))
     @StateObject private var room = RoomCaptureModel()
+    @StateObject private var brain = OnDeviceBrain()
+    @State private var showContact = false
+    @State private var showBrain = false
     @State private var mode = 0
     @State private var help = false
     var body: some View {
@@ -18,6 +21,13 @@ struct HomeView: View {
                 Button { help = true } label: { Image(systemName: "questionmark.circle").font(.title2) }
                     .accessibilityLabel("Instructions").accessibilityIdentifier("instructions")
             }
+            HStack {
+                Button("КОНТАКТ · вдвоём") { showContact = true }
+                    .buttonStyle(.borderedProminent).accessibilityIdentifier("contact.open")
+                    .disabled(room.scanning || room.processing)
+                Button("GGUF · интеллект") { showBrain = true }
+                    .buttonStyle(.bordered).accessibilityIdentifier("openGGUF")
+            }.font(.caption.bold()).frame(minHeight: 44)
             Picker("Expedition mode", selection: $mode) {
                 Text("Training").tag(0)
                 Text("LiDAR").tag(1)
@@ -32,6 +42,8 @@ struct HomeView: View {
         .frame(maxWidth: 1000).frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Palette.background).tint(Palette.teal)
         .sheet(isPresented: $help) { InstructionsScreen() }
+        .sheet(isPresented: $showBrain) { BrainScreen(brain: brain) }
+        .fullScreenCover(isPresented: $showContact) { ContactScreen(room: room, brain: brain) }
     }
 }
 
