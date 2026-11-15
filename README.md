@@ -8,7 +8,7 @@ Open **Training → Begin expedition**. Tap an open tile to preview a route, or 
 
 Movement costs one AP per tile. Recover each of the three amber relics for one AP, return to the teal landing pad, then **Extract** for one AP. **End Turn** restores six AP. There is no turn limit. The success screen offers replay; Reset returns to the briefing. Zoom changes the camera, not the mission.
 
-Training is explicitly simulated and needs neither a camera nor LiDAR. Progress is stored locally as a validated, versioned Codable mission. A destination is committed before its movement animation; interrupted animations do not lose the move. Invalid saves return to a fresh briefing.
+Training is explicitly simulated and needs neither a camera nor LiDAR. Progress uses a validated 19-byte binary payload with a version and corruption checksum; existing JSON saves migrate on read. A destination is committed before its movement animation; interrupted animations do not lose the move. Invalid saves return to a fresh briefing.
 
 ## Scan the real room
 
@@ -30,7 +30,7 @@ bash scripts/build_and_test.sh
 
 The entrypoint runs `scripts/ci.sh`: core tests, project generation, an available iOS 18+ simulator, UI tests, an unsigned device compilation, screenshots and validation receipts. `WorldEXE.xcodeproj` is generated from `project.yml`. The icon is original and reproducibly generated without external assets.
 
-The seven pure Swift tests cover shortest paths, blocked/unreachable/out-of-bounds destinations, AP costs, atomic rejection, the full mission, extraction gates, reset and save validation. UI tests cover help/reset and a complete mission through the real on-screen controls, with retained screenshots. CI stages have separate statuses and bounded simulator/test execution.
+The pure Swift tests cover shortest paths, blocked/unreachable/out-of-bounds destinations, AP costs, atomic rejection, the full mission, extraction gates, reset and save validation. UI tests cover help/reset and a complete mission through the real on-screen controls, with retained screenshots. CI stages have separate statuses and bounded simulator/test execution.
 
 GitHub Actions retains logs, `.xcresult`, screenshots, the generated Xcode project, a simulator app, and a clearly labeled **unsigned** device app. Only a successful receipt for the relevant commit establishes those checks passed. Simulator evidence does not validate physical sensors or human comfort.
 
@@ -43,3 +43,7 @@ Current Apple provisioning observations and the exact permission gate are in [DE
 ## Prototype scope
 
 One deterministic mission; no combat, multiplayer, RF measurements or biological readings. Room rendering uses element bounding boxes. Room export is synchronous and needs physical-device performance testing. Real LiDAR, RoomPlan accuracy/export, background interruptions, permissions, thermal behavior and touch comfort require testing on a supported iPhone. There are no third-party models, game assets, analytics SDKs or backend services in this slice.
+
+## Compact implementation
+
+See [PERFORMANCE](docs/PERFORMANCE.md) for bounded pathfinding, binary saves, reusable render resources, mesh-copy bounds, verification and reproducible host benchmarks. Performance claims remain separate from physical-device measurements.

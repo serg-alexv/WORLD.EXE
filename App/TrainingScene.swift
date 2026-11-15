@@ -32,6 +32,12 @@ struct TrainingScene: UIViewRepresentable {
         let camera = SCNNode()
         let squad = SCNNode()
         let previewRoot = SCNNode()
+        var previewNodes: [SCNNode] = []
+        var previewTeal: SCNGeometry!
+        var previewAmber: SCNGeometry!
+        var lastPreview: [GridPoint] = []
+        var lastAffordable: Bool?
+
         var relicNodes: [GridPoint: SCNNode] = [:]
         var lastPosition: GridPoint?
         let teal = UIColor(red: 0.25, green: 0.9, blue: 0.81, alpha: 1)
@@ -51,6 +57,15 @@ struct TrainingScene: UIViewRepresentable {
             self.view = view
             view.scene = scene
             scene.rootNode.addChildNode(previewRoot)
+            // One bounded pool, two shared immutable geometries: no node/material churn on updates.
+            let good = SCNCylinder(radius: 0.11, height: 0.025)
+            good.materials = [material(teal, glow: true)]
+            let expensive = SCNCylinder(radius: 0.11, height: 0.025)
+            expensive.materials = [material(amber, glow: true)]
+            previewTeal = good; previewAmber = expensive
+            // Grow only to the longest route actually shown; no unused 80-node preallocation.
+            previewNodes.reserveCapacity(16)
+
             camera.camera = SCNCamera()
             camera.camera?.usesOrthographicProjection = true
             camera.camera?.orthographicScale = 15
@@ -143,17 +158,27 @@ struct TrainingScene: UIViewRepresentable {
                 } else { squad.position = location(game.mission.position, height: 0.23) }
                 lastPosition = game.mission.position
             }
-            previewRoot.childNodes.forEach { $0.removeFromParentNode() }
-            if let route = game.preview, game.mission.phase == .active {
-                let color = game.moveCost <= game.mission.actions ? teal : amber
-                for point in route.dropFirst() {
-                    let dot = SCNNode(geometry: SCNCylinder(radius: 0.11, height: 0.025))
-                    dot.position = location(point, height: 0.025)
-                    dot.geometry?.materials = [material(color, glow: true)]
-                    previewRoot.addChildNode(dot)
+            let route = game.mission.phase == .active ? (game.preview ?? []) : []
+            let affordable = max(0, route.count - 1) <= game.mission.actions
+            if route != lastPreview || lastAffordable != affordable {
+                let count = max(0, route.count - 1)
+                while previewNodes.count < count {
+                    let node = SCNNode(geometry: previewTeal)
+                    previewRoot.addChildNode(node)
+                    previewNodes.append(node)
                 }
+                for index in previewNodes.indices {
+                    let node = previewNodes[index]
+                    node.isHidden = index >= count
+                    if index < count {
+                        node.position = location(route[index + 1], height: 0.025)
+                        node.geometry = affordable ? previewTeal : previewAmber
+                    }
+                }
+                lastPreview = route; lastAffordable = affordable
             }
         }
+
         @objc func tap(_ recognizer: UITapGestureRecognizer) {
             guard let view else { return }
             for hit in view.hitTest(recognizer.location(in: view), options: nil) {

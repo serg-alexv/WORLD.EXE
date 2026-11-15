@@ -29,55 +29,13 @@ public struct Sector: Sendable {
     public func isWalkable(_ point: GridPoint) -> Bool {
         contains(point) && !obstacles.contains(point)
     }
-    /// Breadth-first search with stable neighbor ordering. Includes both endpoints.
+    /// Fixed-size BFS preserving N/E/S/W tie-breaking. Includes both endpoints.
     public func path(from start: GridPoint, to goal: GridPoint) -> [GridPoint]? {
-        guard isWalkable(start), isWalkable(goal) else { return nil }
-        var queue = [start]
-        var head = 0
-        var visited: Set<GridPoint> = [start]
-        var previous: [GridPoint: GridPoint] = [:]
-        while head < queue.count {
-            let current = queue[head]
-            head += 1
-            if current == goal {
-                var result = [goal]
-                var cursor = goal
-                while cursor != start {
-                    guard let parent = previous[cursor] else { return nil }
-                    result.append(parent)
-                    cursor = parent
-                }
-                return result.reversed()
-            }
-            for next in current.neighbors where isWalkable(next) {
-                if visited.insert(next).inserted {
-                    previous[next] = current
-                    queue.append(next)
-                }
-            }
-        }
-        return nil
+        CompactPathfinder.path(from: start, to: goal)
     }
-    /// Also useful for custom blocked-map checks without changing the mission map.
     public func path(from start: GridPoint, to goal: GridPoint,
                      avoiding extra: Set<GridPoint>) -> [GridPoint]? {
-        guard !extra.contains(start), !extra.contains(goal),
-              isWalkable(start), isWalkable(goal) else { return nil }
-        var queue = [[start]]
-        var visited: Set<GridPoint> = [start]
-        var head = 0
-        while head < queue.count {
-            let route = queue[head]
-            head += 1
-            guard let current = route.last else { continue }
-            if current == goal { return route }
-            for next in current.neighbors
-            where isWalkable(next) && !extra.contains(next) && !visited.contains(next) {
-                visited.insert(next)
-                queue.append(route + [next])
-            }
-        }
-        return nil
+        CompactPathfinder.path(from: start, to: goal, avoiding: extra)
     }
 }
 
@@ -152,5 +110,60 @@ public struct Mission: Codable, Equatable, Sendable {
         guard phase == .active else { throw MissionError.inactive }
         actions = Self.actionsPerTurn
         if turn < Int.max { turn += 1 }
+    }
+}
+
+public enum CompactMissionError: Error {
+    case invalidLength, invalidHeader, checksumMismatch, invalidState
+}
+
+extension Mission {
+    /// 19-byte payload: WE, version, phase, cell, relic bits, AP, UInt64 turn LE, CRC32 LE.
+    /// CRC detects accidental corruption; it is not an authenticity/security mechanism.
+    public func compactData() throws -> Data {
+        guard isValid else { throw CompactMissionError.invalidState }
+        let phaseByte: UInt8
+        switch phase { case .briefing: phaseByte = 0; case .active: phaseByte = 1; case .success: phaseByte = 2 }
+        var relicBits: UInt8 = 0
+        for (i, point) in Sector.training.relics.enumerated() where recovered.contains(point) {
+            relicBits |= UInt8(1) << UInt8(i)
+        }
+        var data = Data(capacity: 19)
+        data.append(contentsOf: [0x57, 0x45, 1, phaseByte, UInt8(position.y * 9 + position.x), relicBits, UInt8(actions)])
+        let turns = UInt64(turn)
+        for shift in stride(from: 0, through: 56, by: 8) { data.append(UInt8(truncatingIfNeeded: turns >> shift)) }
+        let checksum = Self.compactChecksum(data)
+        for shift in stride(from: 0, through: 24, by: 8) { data.append(UInt8(truncatingIfNeeded: checksum >> shift)) }
+        return data
+    }
+    public init(compactData data: Data) throws {
+        guard data.count == 19 else { throw CompactMissionError.invalidLength }
+        // Normalize indexing: callers may pass a Data slice whose startIndex is not zero.
+        let bytes = [UInt8](data)
+        guard bytes[0] == 0x57, bytes[1] == 0x45, bytes[2] == 1 else { throw CompactMissionError.invalidHeader }
+        var checksum: UInt32 = 0
+        for i in 0..<4 { checksum |= UInt32(bytes[15+i]) << (i*8) }
+        guard Self.compactChecksum(bytes.prefix(15)) == checksum else { throw CompactMissionError.checksumMismatch }
+        guard bytes[3] <= 2, bytes[4] < 81, bytes[5] < 8, bytes[6] <= 6 else { throw CompactMissionError.invalidState }
+        var turns: UInt64 = 0
+        for i in 0..<8 { turns |= UInt64(bytes[7+i]) << (i*8) }
+        guard turns > 0, turns <= UInt64(Int.max) else { throw CompactMissionError.invalidState }
+        self.init()
+        phase = bytes[3] == 0 ? .briefing : (bytes[3] == 1 ? .active : .success)
+        position = GridPoint(Int(bytes[4]) % 9, Int(bytes[4]) / 9)
+        recovered = []
+        for (i, point) in Sector.training.relics.enumerated() where bytes[5] & (UInt8(1) << UInt8(i)) != 0 {
+            recovered.insert(point)
+        }
+        actions = Int(bytes[6]); turn = Int(turns)
+        guard isValid else { throw CompactMissionError.invalidState }
+    }
+    private static func compactChecksum<S: Sequence>(_ bytes: S) -> UInt32 where S.Element == UInt8 {
+        var crc: UInt32 = .max
+        for byte in bytes {
+            crc ^= UInt32(byte)
+            for _ in 0..<8 { crc = (crc >> 1) ^ ((crc & 1) == 0 ? 0 : 0xEDB88320) }
+        }
+        return ~crc
     }
 }

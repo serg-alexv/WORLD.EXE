@@ -9,6 +9,12 @@ settings:
     IPHONEOS_DEPLOYMENT_TARGET: "18.0"
     MARKETING_VERSION: "0.1.0"
     CURRENT_PROJECT_VERSION: "1"
+  configs:
+    Release:
+      SWIFT_OPTIMIZATION_LEVEL: -Osize
+      SWIFT_COMPILATION_MODE: wholemodule
+      DEAD_CODE_STRIPPING: YES
+      COPY_PHASE_STRIP: YES
 packages:
   WorldCore:
     path: WorldCore
