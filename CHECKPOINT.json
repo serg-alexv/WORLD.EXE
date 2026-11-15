@@ -1,0 +1,14 @@
+{
+  "excludes": [
+    "credentials",
+    "model weights",
+    "binaries",
+    "build output",
+    "private ops files"
+  ],
+  "format": 1,
+  "source_branch": "refactor/personal-feed",
+  "source_head": "bbda431e3ea295541c42c05bd71fc563a698f86a",
+  "status": "source recovery snapshot, not a validated build",
+  "workspace": "personal-feed"
+}
