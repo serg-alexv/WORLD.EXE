@@ -106,7 +106,7 @@ struct SignalSiegeScreen: View {
         let covered = mission.cover.contains(point)
         let player = point == mission.position
         let enemy = point == mission.sentryPosition && mission.sentryHealth > 0
-        let hazard = point.y == mission.upcomingHazardRow && !wall
+        let hazard = point.y == mission.upcomingHazardRow && !wall && point != SignalSiege.start
         let selected = selection == point
         return Button { selection = point } label: {
             ZStack {

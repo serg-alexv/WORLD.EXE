@@ -209,4 +209,23 @@ final class SignalSiegeIntegrationTests: XCTestCase {
             XCTAssertEqual(storage.data(forKey: scoresKey), savedScores)
         }
     }
+
+    func testCorruptResetMarkerCannotRestoreAClearedVictory() throws {
+        try withStorage { storage in
+            let store = SignalSiegeStore(storage: storage)
+            store.replay(seed: 31, difficulty: .standard)
+            finish(store)
+            store.clearRankings()
+            let emptyScores = try XCTUnwrap(storage.data(forKey: scoresKey))
+            for marker in ["invalid", "00000000-0000-0000-0000-000000000000"] {
+                storage.set(marker, forKey: "worldexe.signal-siege.cleared-session.v1")
+                let restored = SignalSiegeStore(storage: storage)
+                XCTAssertTrue(restored.leaderboard.isEmpty)
+                XCTAssertTrue(restored.rankingStatus.contains("rejected"))
+                XCTAssertEqual(storage.data(forKey: scoresKey), emptyScores)
+                restored.clearRankings()
+                XCTAssertTrue(SignalSiegeStore(storage: storage).leaderboard.isEmpty)
+            }
+        }
+    }
 }

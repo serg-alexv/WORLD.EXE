@@ -20,7 +20,15 @@ final class SignalSiegeStore: ObservableObject {
     init(persist: Bool = true, evidence: EvidenceStore? = nil, storage: UserDefaults? = nil) {
         self.defaults = persist ? (storage ?? .standard) : nil
         self.evidence = evidence
-        if let saved = defaults?.string(forKey: clearedSessionKey) { clearedSession = UUID(uuidString: saved) }
+        if let marker = defaults?.object(forKey: clearedSessionKey) {
+            if let text = marker as? String, let id = UUID(uuidString: text),
+               id.uuidString != "00000000-0000-0000-0000-000000000000" {
+                clearedSession = id
+            } else {
+                rankingsNeedReset = true
+                rankingStatus = "Saved ranking reset marker rejected. Clear local rankings to start a new archive."
+            }
+        }
         if let data = defaults?.data(forKey: scoresKey) {
             do { leaderboard = try SiegeLeaderboard(data: data) }
             catch {
