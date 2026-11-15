@@ -18,6 +18,7 @@ simulator() {
     -destination 'generic/platform=iOS Simulator' \
     -derivedDataPath build/DerivedData -resultBundlePath build/BuildForTesting.xcresult \
     CODE_SIGNING_ALLOWED=NO build-for-testing 2>&1 | tee build/simulator-build.log
+  python3 scripts/verify_app_identity.py build/DerivedData/Build/Products/Debug-iphonesimulator/WorldEXE.app --version 0.2.0 --build 1
   touch build/simulator-build.ok
 }
 ui() {
@@ -79,6 +80,7 @@ device() {
     -destination 'generic/platform=iOS' -derivedDataPath build/DeviceData \
     CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY='' \
     build 2>&1 | tee build/device-build.log
+  python3 scripts/verify_app_identity.py build/DeviceData/Build/Products/Release-iphoneos/WorldEXE.app --version 0.2.0 --build 1
   touch build/device.ok
   ditto -c -k --sequesterRsrc --keepParent build/DerivedData/Build/Products/Debug-iphonesimulator/WorldEXE.app build/WORLD.EXE-Simulator.zip
   ditto -c -k --sequesterRsrc --keepParent build/DeviceData/Build/Products/Release-iphoneos/WorldEXE.app build/WORLD.EXE-UNSIGNED-device.zip

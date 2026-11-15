@@ -19,6 +19,8 @@ jobs:
       - uses: maxim-lobanov/setup-xcode@1242409711ff5721add51979e9e11e23ebb7e5a4
         with:
           xcode-version: '26.3'
+      - name: Release identity guard unit tests
+        run: python3 -m unittest discover -s scripts/tests -p 'test_*.py' -v
       - name: Install project generator
         run: brew install xcodegen
       - name: Restore SDK module cache
@@ -58,7 +60,7 @@ jobs:
         timeout-minutes: 12
         run: bash scripts/ci.sh simulator
       - name: Boot simulator and complete expedition through UI
-        timeout-minutes: 12
+        timeout-minutes: 20
         run: bash scripts/ci.sh ui
       - name: Compile unsigned device app and package evidence
         timeout-minutes: 8

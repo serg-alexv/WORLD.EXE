@@ -28,6 +28,8 @@ targets:
       path: App/Info.plist
       properties:
         CFBundleDisplayName: WORLD.EXE
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         NSCameraUsageDescription: "Камера нужна для LiDAR, схемы комнаты и игровых объектов в AR."
         NSLocalNetworkUsageDescription: "КОНТАКТ соединяет два устройства поблизости. Схема комнаты передаётся только выбранному напарнику после подтверждения."
         NSBonjourServices:
