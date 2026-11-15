@@ -5,7 +5,12 @@ import WorldCore
 @MainActor struct ContactScreen: View {
     @ObservedObject var room: RoomCaptureModel
     @ObservedObject var brain: OnDeviceBrain
-    @StateObject private var c = ContactSessionController()
+    private let evidence: EvidenceStore?
+    @StateObject private var c: ContactSessionController
+    init(room: RoomCaptureModel, brain: OnDeviceBrain, evidence: EvidenceStore? = nil) {
+        self.room = room; self.brain = brain; self.evidence = evidence
+        _c = StateObject(wrappedValue: ContactSessionController(evidence: evidence))
+    }
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
     @State private var zoom = 1.0
@@ -66,7 +71,7 @@ import WorldCore
                 if let session = c.arSession, room.contactSession === session, room.contactGeneration == c.captureID {
                     ContactARView(session: session, room: geometry, state: s, glyphs: c.mission?.researcher.glyphs ?? [nil,nil,nil], anchor: c.arAnchor,
                                   active: scenePhase == .active && !room.scanning && !room.processing, canPlace: c.canPlace, canTap: c.canAct,
-                                  onTracking: c.track, onPlace: c.placed, onMove: c.anchorUpdated, onTap: c.selectAR, onNote: c.note)
+                                  onTracking: c.track, evidence: evidence, onPlace: c.placed, onMove: c.anchorUpdated, onTap: c.selectAR, onNote: c.note)
                         .frame(height: 290).clipShape(RoundedRectangle(cornerRadius: 12)).accessibilityIdentifier("contact.ar")
                 } else { Text("Требуется новое сканирование комнаты в этой сессии.") }
                 #endif
@@ -118,7 +123,10 @@ import WorldCore
             Button("Совет модели по моей роли") { ask(s) }.disabled(!brain.isLoaded || brain.isBusy || asking)
                 .accessibilityIdentifier("contact.advice")
             Text("Модель необязательна. Передаются только роль и публичный прогресс, без скана и скрытых символов. Модель оператора остаётся на его устройстве.").font(.caption)
-            if !advice.isEmpty { Text(advice).textSelection(.enabled) }
+            if !advice.isEmpty {
+                Text("ИНТЕРПРЕТАЦИЯ МОДЕЛИ · НЕ НАБЛЮДЕНИЕ").font(.caption.bold()).foregroundStyle(Palette.amber)
+                Text(advice).textSelection(.enabled)
+            }
             if c.mode == .host && !c.peer.connected { Button("Перезапустить ожидание оператора") { c.host(room: room) } }
             if c.mode != .guest { Button("Новая миссия") { c.replay() }.disabled(c.mode == .host && !c.peer.connected) }
             Button("Лобби / переподключение") { brain.cancel(); advice = ""; c.lobby() }.accessibilityIdentifier("contact.lobby")

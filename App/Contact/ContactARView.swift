@@ -4,6 +4,7 @@ import SceneKit
 import Metal
 import simd
 import WorldCore
+import EvidenceCore
 
 struct ContactARView: UIViewRepresentable {
     let session: ARSession
@@ -15,6 +16,7 @@ struct ContactARView: UIViewRepresentable {
     let canPlace: Bool
     let canTap: Bool
     let onTracking: (Bool, String) -> Void
+    var evidence: EvidenceStore? = nil
     let onPlace: (ARAnchor) -> Void
     let onMove: ([Float]) -> Void
     let onTap: (Int?) -> Void
@@ -29,7 +31,7 @@ struct ContactARView: UIViewRepresentable {
     }
     func updateUIView(_ view: ARSCNView, context: Context) { configure(context.coordinator); context.coordinator.run(active) }
     private func configure(_ c: Coordinator) {
-        c.room = room; c.canPlace = canPlace; c.canTap = canTap
+        c.room = room; c.canPlace = canPlace; c.canTap = canTap; c.evidence = evidence
         c.tracked = onTracking; c.placed = onPlace; c.moved = onMove; c.tapped = onTap; c.note = onNote
         c.install(anchor); ContactArt.update(c.game, state: state, glyphs: glyphs)
     }
@@ -38,6 +40,9 @@ struct ContactARView: UIViewRepresentable {
     }
     final class Coordinator: NSObject, ARSessionDelegate {
         weak var view: ARSCNView?
+        weak var evidence: EvidenceStore?
+        private let evidenceCapture = UUID()
+        private var lastEvidenceQuality: TrackingQuality?
         var room: ContactRoomDTO?
         var canPlace = false, canTap = false, live = true
         var tracked: ((Bool,String) -> Void)?
@@ -53,6 +58,7 @@ struct ContactARView: UIViewRepresentable {
         private var sentTransform: [Float]?
         private let frameLock = NSLock()
         private var lastFrameTime: TimeInterval = -1
+        private var evidenceFrameOrigin: TimeInterval?
         private var lastTrackingText = ""
         private let meshLock = NSLock()
         private var pendingMeshes: Set<UUID> = []
@@ -103,18 +109,26 @@ struct ContactARView: UIViewRepresentable {
         }
         func session(_ session: ARSession, didUpdate frame: ARFrame) {
             frameLock.lock()
+            if evidenceFrameOrigin == nil { evidenceFrameOrigin = frame.timestamp }
+            let sensorElapsed = max(0, frame.timestamp - (evidenceFrameOrigin ?? frame.timestamp))
             let deliver = frame.timestamp - lastFrameTime >= 0.2
             if deliver { lastFrameTime = frame.timestamp }
             frameLock.unlock()
             guard deliver else { return }
             let normal: Bool, text: String
+            let quality: TrackingQuality
             switch frame.camera.trackingState {
-            case .normal: normal = true; text = "Отслеживание: нормально"
-            case .notAvailable: normal = false; text = "Отслеживание недоступно"
-            case .limited: normal = false; text = "Отслеживание ограничено. Осмотритесь медленно; затем нажмите «Продолжить»."
+            case .normal: quality = .normal; normal = true; text = "Отслеживание: нормально"
+            case .notAvailable: quality = .unavailable; normal = false; text = "Отслеживание недоступно"
+            case .limited: quality = .limited; normal = false; text = "Отслеживание ограничено. Осмотритесь медленно; затем нажмите «Продолжить»."
             }
+            let sensorTime = sensorElapsed
             DispatchQueue.main.async { [weak self] in
-                guard let self, self.live else { return }
+                guard let self, self.live, self.running else { return }
+                if self.lastEvidenceQuality != quality {
+                    self.lastEvidenceQuality = quality
+                    self.evidence?.recordTracking(id: self.evidenceCapture, quality: quality, sensorElapsedSeconds: sensorTime)
+                }
                 let next = normal && !self.interrupted && !self.rootLost && self.running
                 guard next != self.normal || text != self.lastTrackingText else { return }
                 self.normal = next; self.lastTrackingText = text

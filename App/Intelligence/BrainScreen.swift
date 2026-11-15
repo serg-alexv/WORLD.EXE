@@ -32,6 +32,7 @@ struct BrainScreen: View {
                                 .accessibilityIdentifier("ggufStop")
                         }
                         if !brain.metrics.isEmpty { Text(brain.metrics).font(.caption).foregroundStyle(.secondary) }
+                        Text("Телеметрия запроса хранится отдельно от ответа. Metal запрошен ≠ GPU подтверждён; фактический backend и RAM пока не измерены.").font(.caption2).foregroundStyle(.secondary)
                     }.padding().frame(maxWidth: .infinity, alignment: .leading)
                         .background(Palette.panel, in: RoundedRectangle(cornerRadius: 16))
                     Button { importing = true } label: {
@@ -62,6 +63,8 @@ struct BrainScreen: View {
                         .frame(maxWidth: .infinity, minHeight: 44).buttonStyle(.borderedProminent)
                         .disabled(!brain.isLoaded || brain.isBusy).accessibilityIdentifier("ggufGenerate")
                     if !brain.response.isEmpty {
+                        Text("ИНТЕРПРЕТАЦИЯ GGUF · НЕ ИЗМЕРЕНИЕ")
+                            .font(.caption.bold()).foregroundStyle(Palette.amber).accessibilityIdentifier("gguf.interpretation")
                         Text(brain.response).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
                             .padding().background(Palette.panel, in: RoundedRectangle(cornerRadius: 12))
                             .accessibilityIdentifier("ggufResponse")

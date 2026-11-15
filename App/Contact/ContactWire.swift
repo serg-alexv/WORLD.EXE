@@ -35,22 +35,26 @@ enum ContactMath {
 struct ContactRoomDTO: Codable, Equatable, Sendable {
     let version: Int
     let synthetic: Bool
+    let captureID: UUID?
+    let capturedAt: Date?
     let surfaces: [ContactSurface]
     var valid: Bool { version == 1 && !surfaces.isEmpty && surfaces.count <= 512 && surfaces.allSatisfy { $0.valid } }
-    init?(snapshot: RoomSnapshot) {
-        version = 1; synthetic = false
+    init?(snapshot: RoomSnapshot, captureID: UUID? = nil, capturedAt: Date? = nil) {
+        version = 1; synthetic = false; self.captureID = captureID; self.capturedAt = capturedAt
         surfaces = snapshot.elements.map { ContactSurface(kind: $0.kind, dimensions: $0.dimensions, transform: $0.transform) }
         guard snapshot.isValid, valid else { return nil }
     }
-    private init(surfaces: [ContactSurface]) { version = 1; synthetic = true; self.surfaces = surfaces }
+    private init(surfaces: [ContactSurface]) { version = 1; synthetic = true; captureID = nil; capturedAt = nil; self.surfaces = surfaces }
     static var demo: ContactRoomDTO {
         var t = ContactMath.identity; t[13] = -0.04
         return ContactRoomDTO(surfaces: [ContactSurface(kind: "table", dimensions: [1.4,0.04,1], transform: t)])
     }
-    private enum CodingKeys: String, CodingKey { case version, synthetic, surfaces }
+    private enum CodingKeys: String, CodingKey { case version, synthetic, surfaces, captureID, capturedAt }
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         version = try c.decode(Int.self, forKey: .version); synthetic = try c.decode(Bool.self, forKey: .synthetic)
+        captureID = try c.decodeIfPresent(UUID.self, forKey: .captureID)
+        capturedAt = try c.decodeIfPresent(Date.self, forKey: .capturedAt)
         surfaces = try c.decode([ContactSurface].self, forKey: .surfaces)
         guard valid else { throw ContactError.range }
     }

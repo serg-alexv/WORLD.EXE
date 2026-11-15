@@ -2,9 +2,20 @@ import SwiftUI
 import WorldCore
 
 struct HomeView: View {
-    @StateObject private var game = GameStore(persist: !ProcessInfo.processInfo.arguments.contains("-ui-testing"))
-    @StateObject private var room = RoomCaptureModel()
-    @StateObject private var brain = OnDeviceBrain()
+    @StateObject private var evidence: EvidenceStore
+    @StateObject private var game: GameStore
+    @StateObject private var room: RoomCaptureModel
+    @StateObject private var brain: OnDeviceBrain
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var showEvidence = false
+    init() {
+        let persist = !ProcessInfo.processInfo.arguments.contains("-ui-testing")
+        let journal = EvidenceStore(persist: persist)
+        _evidence = StateObject(wrappedValue: journal)
+        _game = StateObject(wrappedValue: GameStore(persist: persist, evidence: journal))
+        _room = StateObject(wrappedValue: RoomCaptureModel(evidence: journal))
+        _brain = StateObject(wrappedValue: OnDeviceBrain(evidence: journal))
+    }
     @State private var showContact = false
     @State private var showBrain = false
     @State private var mode = 0
@@ -18,6 +29,8 @@ struct HomeView: View {
                         .font(.system(size: 10, design: .monospaced)).foregroundStyle(Palette.teal)
                 }
                 Spacer()
+                Button { showEvidence = true } label: { Image(systemName: "list.bullet.rectangle").font(.title2) }
+                    .accessibilityLabel("Наблюдения и телеметрия").accessibilityIdentifier("evidence.open")
                 Button { help = true } label: { Image(systemName: "questionmark.circle").font(.title2) }
                     .accessibilityLabel("Instructions").accessibilityIdentifier("instructions")
             }
@@ -36,7 +49,7 @@ struct HomeView: View {
             }
             .pickerStyle(.segmented).accessibilityIdentifier("modePicker")
             if mode == 0 { TrainingScreen(game: game) }
-            else if mode == 1 { LiDARView() }
+            else if mode == 1 { LiDARView(evidence: evidence) }
             else { RoomCaptureScreen(model: room) }
         }
         .padding(.horizontal, 14).padding(.top, 8).padding(.bottom, 6)
@@ -44,7 +57,9 @@ struct HomeView: View {
         .background(Palette.background).tint(Palette.teal)
         .sheet(isPresented: $help) { InstructionsScreen() }
         .sheet(isPresented: $showBrain) { BrainScreen(brain: brain) }
-        .fullScreenCover(isPresented: $showContact) { ContactScreen(room: room, brain: brain) }
+        .fullScreenCover(isPresented: $showContact) { ContactScreen(room: room, brain: brain, evidence: evidence) }
+        .sheet(isPresented: $showEvidence) { EvidenceScreen(store: evidence) }
+        .onChange(of: scenePhase) { _, phase in if phase != .active { evidence.flush() } }
     }
 }
 
