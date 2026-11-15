@@ -55,6 +55,10 @@ final class RoomCaptureModel: NSObject, ObservableObject {
     @Published private(set) var contactGeneration: UUID?
     @Published private(set) var exportURLs: [URL] = []
     @Published var status = "Stopped. Start a room capture or view the saved archive."
+    private let evidence: EvidenceStore?
+    private var startedUptime: Double?
+    var observationCaptureID: UUID? { activeArchive?.id }
+    var observationCapturedAt: Date? { activeArchive?.processedAt }
     private var activeArchive: RoomArchiveRecord?
     private var captureToken = UUID()
     private var captureRelay: RoomCaptureRelay?
@@ -70,7 +74,8 @@ final class RoomCaptureModel: NSObject, ObservableObject {
     private func exports(in folder: URL) -> [URL] {
         ["capture-metadata.json", "captured-room.json", "captured-room.usdz"].map { folder.appendingPathComponent($0) }
     }
-    override init() {
+    init(evidence: EvidenceStore? = nil) {
+        self.evidence = evidence
         super.init()
         guard FileManager.default.fileExists(atPath: manifestURL.path) else { return }
         do {
@@ -85,6 +90,7 @@ final class RoomCaptureModel: NSObject, ObservableObject {
                 throw CocoaError(.coderReadCorrupt)
             }
             activeArchive = record; snapshot = restored; exportURLs = exports(in: folder)
+            evidence?.recordRoom(id: record.id, date: record.processedAt, elements: restored.elements.count, origin: .restoredArchive)
             status = "Local room archive restored. Estimated geometry is ready for isometric viewing."
             removeOrphans(keeping: record.id)
         } catch {
@@ -101,6 +107,7 @@ final class RoomCaptureModel: NSObject, ObservableObject {
         let relay = RoomCaptureRelay(owner: self, token: captureToken)
         captureRelay = relay; view.delegate = relay; captureView = view
         scanning = true
+        startedUptime = ProcessInfo.processInfo.systemUptime
         status = "Scanning. Slowly reveal walls, floor, doors and furniture. Press Stop to process."
         view.captureSession.run(configuration: RoomCaptureSession.Configuration())
         expeditionLog.info("Room capture started")
@@ -158,6 +165,8 @@ final class RoomCaptureModel: NSObject, ObservableObject {
         }
     }
     private func fail(_ error: Error) {
+        if let startedUptime { evidence?.recordTelemetry(.captureDuration(seconds: ProcessInfo.processInfo.systemUptime - startedUptime, outcome: .failed)) }
+        startedUptime = nil
         scanning = false; processing = false
         status = "Room capture error: \(error.localizedDescription). The last completed archive is retained."
         releaseCaptureView()
@@ -184,6 +193,9 @@ final class RoomCaptureModel: NSObject, ObservableObject {
             try metadata.write(to: manifestURL, options: .atomic)
             committed = true
             activeArchive = record; snapshot = nextSnapshot; exportURLs = exports(in: folder)
+            evidence?.recordRoom(id: record.id, date: record.processedAt, elements: nextSnapshot.elements.count, origin: .localSensor)
+            if let startedUptime { evidence?.recordTelemetry(.captureDuration(seconds: ProcessInfo.processInfo.systemUptime - startedUptime, outcome: .succeeded)) }
+            startedUptime = nil
             status = "Room processed and saved locally. Isometric view, metadata, JSON and USDZ are ready."
             removeOrphans(keeping: record.id)
             expeditionLog.info("Room archive saved: \(nextSnapshot.elements.count) elements")
