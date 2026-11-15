@@ -1,44 +1,45 @@
 # WORLD.EXE — The Hollow Orbit
 
-A native iOS 18+ exploration prototype using SwiftUI, SceneKit, ARKit and RoomPlan. Bundle: `org.worldexe.prototype`. Xcode scheme: `WorldEXE`. Swift language mode: 5. No external dependencies or network services.
+A native iOS 18+ exploration prototype: original procedural 3D graphics, a complete tactical training mission, and separate real spatial-sensing modes. Built with SwiftUI, SceneKit, ARKit and RoomPlan. Bundle identifier: `org.worldexe.prototype`; Xcode scheme: `WorldEXE`.
 
-## Play
+## Play the expedition
 
-Choose **Training**, then **Begin expedition**. Training is explicitly simulated and works without camera access, including on the iOS simulator. The fixed sector has seed 731, ten blocking pillars, three amber relics, a teal squad marker and a landing pad at grid (4,8).
+Open **Training → Begin expedition**. Tap an open tile to preview a route, or use **Plot** to select an affordable waypoint toward the next objective. **Confirm Move** advances the squad. Teal route markers fit the remaining action points; amber markers exceed them.
 
-Tap an open tile to preview its shortest route. Teal route dots fit your remaining action points; amber dots exceed them. **Confirm Move** animates the squad along the route. Each tile costs 1 AP. On an amber relic tile, **Recover** costs 1 AP. **End Turn** restores 6 AP with no turn limit. Recover all three relics, return to the landing pad and **Extract** for 1 AP. Replay begins another expedition. Reset returns to the briefing. The help button explains controls and sensors. Camera zoom and reset do not affect mission state.
+Movement costs one AP per tile. Recover each of the three amber relics for one AP, return to the teal landing pad, then **Extract** for one AP. **End Turn** restores six AP. There is no turn limit. The success screen offers replay; Reset returns to the briefing. Zoom changes the camera, not the mission.
 
-Commands persist a validated, versioned Codable mission in local UserDefaults. A move commits its destination before animation, so leaving mid-animation restores the destination. Invalid or incompatible saves reset safely to a briefing. UI tests pass `-ui-testing` to disable mission persistence for that process.
+Training is explicitly simulated and needs neither a camera nor LiDAR. Progress is stored locally as a validated, versioned Codable mission. A destination is committed before its movement animation; interrupted animations do not lose the move. Invalid saves return to a fresh briefing.
 
-## Sensors
+## Scan the real room
 
-**LiDAR** independently checks ARKit mesh support and requests camera permission only on Start. It displays real ARMeshAnchor wireframes over the live camera. Pause, mode changes and app inactivity release the session. The display is capped at 128 mesh chunks and skips oversized chunks. It does not save LiDAR meshes. Unsupported and denied states leave Training available.
+**LiDAR** checks actual ARKit scene-reconstruction support before enabling Start. It displays mesh-anchor wireframes over the camera, capped at 128 chunks. Pause, leaving the mode, and app inactivity stop the live session. It does not save LiDAR meshes.
 
-**Room scan** independently checks RoomCaptureSession support. Start runs RoomCaptureView; Stop ends capture and lets its view delegate receive a processed CapturedRoom. There is no custom or assumed Done button. The most recent completed room remains available across mode changes and relaunches. The isometric archive uses the original column-major transforms and meter dimensions for walls, doors, windows, openings and furniture. Zero-thickness surfaces receive a 2 cm display thickness. Estimated room geometry is labeled separately and does not become simulated mission terrain.
+**Room scan** uses RoomPlan with explicit Start, Stop and Reset controls. A completed capture can be inspected through an orthographic camera and shared as JSON, metadata and USDZ. Floors, walls, openings and furniture retain their estimated meter dimensions and transforms. Zero-thickness surfaces receive a 2 cm rendering thickness, not a fabricated measurement.
 
-Room archives live under the app's Application Support/WorldEXE-Room directory, excluded from backups. JSON contains RoomPlan's encoded CapturedRoom; USDZ uses parametric export. Share opens the native share sheet. Reset scan deletes the local archive and exports, independently of training. Geometry stays local unless the user shares it. Export/permission/session errors are visible, with session diagnostics in OSLog under `org.worldexe.prototype`.
+Room archives are local and excluded from backups. Each capture is written into its own directory; an atomic manifest publishes the completed archive only after its files exist. Failure retains the previous archive. Per-capture delegate tokens reject obsolete callbacks after reset or replacement. Metadata records the source, units and processing time.
 
-## Build and validation
+Camera permission is requested only when starting a sensor mode. Denied or unavailable sensors do not block Training. Captured rooms and game terrain remain separate: this version does **not** infer a playable tactical map from a room scan.
 
-On macOS with Xcode 26.3, an iOS 18+ simulator runtime and XcodeGen installed:
+## Build and validate
+
+On a Mac with Xcode 26.3 and XcodeGen:
 
 ```sh
-swift test --package-path WorldCore
 bash scripts/build_and_test.sh
 ```
 
-Optional explicit destination:
+The entrypoint runs `scripts/ci.sh`: core tests, project generation, an available iOS 18+ simulator, UI tests, an unsigned device compilation, screenshots and validation receipts. `WorldEXE.xcodeproj` is generated from `project.yml`. The icon is original and reproducibly generated without external assets.
 
-```sh
-DESTINATION='platform=iOS Simulator,name=iPhone 17' bash scripts/build_and_test.sh
-```
+The seven pure Swift tests cover shortest paths, blocked/unreachable/out-of-bounds destinations, AP costs, atomic rejection, the full mission, extraction gates, reset and save validation. UI tests cover help/reset and a complete mission through the real on-screen controls, with retained screenshots. CI stages have separate statuses and bounded simulator/test execution.
 
-The script generates the Xcode project and runs scheme WorldEXE's UI tests. Pure Swift package tests cover shortest paths, obstacle detours, unreachable/blocked/out-of-bounds destinations, AP accounting and atomic rejection, mission completion/extraction gates, reset and Codable validation. UI smoke tests cover training, help, turn controls and reset without asserting sensor hardware.
+GitHub Actions retains logs, `.xcresult`, screenshots, the generated Xcode project, a simulator app, and a clearly labeled **unsigned** device app. Only a successful receipt for the relevant commit establishes those checks passed. Simulator evidence does not validate physical sensors or human comfort.
 
-No builds or tests were executed by the text-only code generation session. macOS CI must validate compilation and simulator behavior. Verify actual camera permission flows, LiDAR mesh rendering, RoomPlan processing/export, interruptions, mode changes, background cleanup, and share-sheet behavior separately on supported physical devices. A simulator build does not verify sensors.
+## Distribution
 
-## Scope and limitations
+The manual **TestFlight release** workflow is restricted to main and runs validation before signing. It requires app-specific Apple registration/profile and protected environment credentials; it creates an ephemeral signing keychain and verifies the exported archive. `upload=true` explicitly requests uploading. Apple processing and TestFlight group access must be checked afterward.
 
-This slice has one deterministic mission, unlimited turns, no combat and one retained room archive. Captured-room rendering uses bounding boxes for RoomPlan elements rather than detailed USDZ meshes. Room capture/export are bounded to 512 display elements; parametric USDZ generation runs synchronously after processing and can briefly occupy the main thread. Very large rooms and tablet orientation changes need physical-device review. SceneKit is accepted here as a prototype dependency. The app has no production icon assets yet.
+Current Apple provisioning observations and the exact permission gate are in [DEPLOYMENT_STATUS](docs/DEPLOYMENT_STATUS.md). Source code, an unsigned app, and an accepted upload are not interchangeable with an available TestFlight build. Rhea RF Spanner is independent and must not be modified.
 
-Compile-sensitive integration points for the supervisor are RoomCaptureViewDelegate processing callbacks, RoomCaptureSessionDelegate SDK annotations, ARKit mesh-buffer conversion, and XcodeGen's local package linkage. Swift 5 mode avoids Swift 6 strict-concurrency enforcement while UI state changes remain on the main queue. No GitHub workflow files are changed.
+## Prototype scope
+
+One deterministic mission; no combat, multiplayer, RF measurements or biological readings. Room rendering uses element bounding boxes. Room export is synchronous and needs physical-device performance testing. Real LiDAR, RoomPlan accuracy/export, background interruptions, permissions, thermal behavior and touch comfort require testing on a supported iPhone. There are no third-party models, game assets, analytics SDKs or backend services in this slice.

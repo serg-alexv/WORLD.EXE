@@ -55,7 +55,7 @@ struct TrainingScene: UIViewRepresentable {
             camera.camera?.orthographicScale = 15
             camera.camera?.zNear = 0.1
             camera.camera?.zFar = 100
-            camera.position = SCNVector3(12, 15, 16)
+            camera.position = SCNVector3(12, 12, 12)
             camera.look(at: SCNVector3(0, 0, 0))
             scene.rootNode.addChildNode(camera)
             view.pointOfView = camera
@@ -128,7 +128,7 @@ struct TrainingScene: UIViewRepresentable {
             lastPosition = game.mission.position
         }
         func update(zoom: Double) {
-            camera.camera?.orthographicScale = zoom
+            camera.camera?.orthographicScale = 15 / max(0.1, zoom)
             for (point, node) in relicNodes { node.isHidden = game.mission.recovered.contains(point) }
             if lastPosition != game.mission.position {
                 squad.removeAllActions()

@@ -35,32 +35,54 @@ struct RoomSnapshot: Codable {
     }
 }
 
-// Delegate entry points remain nonisolated for Swift 5 SDK compatibility.
-// Every published mutation and capture control operation is dispatched to the main queue.
-final class RoomCaptureModel: NSObject, ObservableObject, RoomCaptureViewDelegate {
+private struct RoomArchiveRecord: Codable {
+    let version: Int
+    let id: UUID
+    let processedAt: Date
+    let source: String
+    let units: String
+}
+
+// Capture controls and published state are confined to the main queue.
+final class RoomCaptureModel: NSObject, ObservableObject {
     @Published private(set) var captureView: RoomCaptureView?
     @Published private(set) var scanning = false
     @Published private(set) var processing = false
     @Published private(set) var snapshot: RoomSnapshot?
     @Published private(set) var exportURLs: [URL] = []
     @Published var status = "Stopped. Start a room capture or view the saved archive."
-    private var capturedRoom: CapturedRoom?
+    private var activeArchive: RoomArchiveRecord?
+    private var captureToken = UUID()
+    private var captureRelay: RoomCaptureRelay?
     private var directory: URL {
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("WorldEXE-Room", isDirectory: true)
     }
-    private var snapshotURL: URL { directory.appendingPathComponent("room-view-v1.json") }
-    private var jsonURL: URL { directory.appendingPathComponent("captured-room.json") }
-    private var usdzURL: URL { directory.appendingPathComponent("captured-room.usdz") }
+    private var manifestURL: URL { directory.appendingPathComponent("current.json") }
+    private func archiveDirectory(_ id: UUID) -> URL {
+        directory.appendingPathComponent("captures", isDirectory: true)
+            .appendingPathComponent(id.uuidString, isDirectory: true)
+    }
+    private func exports(in folder: URL) -> [URL] {
+        ["capture-metadata.json", "captured-room.json", "captured-room.usdz"].map { folder.appendingPathComponent($0) }
+    }
     override init() {
         super.init()
-        guard FileManager.default.fileExists(atPath: snapshotURL.path) else { return }
+        guard FileManager.default.fileExists(atPath: manifestURL.path) else { return }
         do {
-            let restored = try JSONDecoder().decode(RoomSnapshot.self, from: Data(contentsOf: snapshotURL))
-            guard restored.isValid else { throw CocoaError(.coderReadCorrupt) }
-            snapshot = restored
-            refreshExports()
+            let decoder = JSONDecoder(); decoder.dateDecodingStrategy = .iso8601
+            let record = try decoder.decode(RoomArchiveRecord.self, from: Data(contentsOf: manifestURL))
+            guard record.version == 1, record.units == "m", record.source == "Apple RoomPlan" else {
+                throw CocoaError(.coderReadCorrupt)
+            }
+            let folder = archiveDirectory(record.id)
+            let restored = try JSONDecoder().decode(RoomSnapshot.self, from: Data(contentsOf: folder.appendingPathComponent("room-view-v1.json")))
+            guard restored.isValid, exports(in: folder).allSatisfy({ FileManager.default.fileExists(atPath: $0.path) }) else {
+                throw CocoaError(.coderReadCorrupt)
+            }
+            activeArchive = record; snapshot = restored; exportURLs = exports(in: folder)
             status = "Local room archive restored. Estimated geometry is ready for isometric viewing."
+            removeOrphans(keeping: record.id)
         } catch {
             status = "Saved room archive could not be read. Reset scan or start a new capture."
             expeditionLog.error("Room restore failed: \(error.localizedDescription, privacy: .public)")
@@ -71,8 +93,8 @@ final class RoomCaptureModel: NSObject, ObservableObject, RoomCaptureViewDelegat
         guard RoomCaptureSession.isSupported, !scanning, !processing else { return }
         releaseCaptureView()
         let view = RoomCaptureView(frame: .zero)
-        view.delegate = self
-        captureView = view
+        let relay = RoomCaptureRelay(owner: self, token: captureToken)
+        captureRelay = relay; view.delegate = relay; captureView = view
         scanning = true
         status = "Scanning. Slowly reveal walls, floor, doors and furniture. Press Stop to process."
         view.captureSession.run(configuration: RoomCaptureSession.Configuration())
@@ -81,92 +103,111 @@ final class RoomCaptureModel: NSObject, ObservableObject, RoomCaptureViewDelegat
     func stop() {
         dispatchPrecondition(condition: .onQueue(.main))
         guard scanning else { return }
-        scanning = false
-        processing = true
+        scanning = false; processing = true
         status = "Capture stopped. RoomPlan is processing the estimated room."
         captureView?.captureSession.stop(pauseARSession: true)
     }
     func reset() {
         dispatchPrecondition(condition: .onQueue(.main))
-        releaseCaptureView()
-        scanning = false
-        processing = false
-        capturedRoom = nil
-        snapshot = nil
-        exportURLs = []
+        releaseCaptureView(); scanning = false; processing = false
+        activeArchive = nil; snapshot = nil; exportURLs = []
         do {
-            for url in [snapshotURL, jsonURL, usdzURL] where FileManager.default.fileExists(atPath: url.path) {
-                try FileManager.default.removeItem(at: url)
+            if FileManager.default.fileExists(atPath: manifestURL.path) {
+                try FileManager.default.removeItem(at: manifestURL)
+            }
+            if FileManager.default.fileExists(atPath: directory.path) {
+                try FileManager.default.removeItem(at: directory)
             }
             status = "Room archive reset. Training progress is unchanged."
         } catch {
             status = "Archive cleared from memory, but deleting a saved file failed: \(error.localizedDescription). Try Reset again."
-            expeditionLog.error("Room reset failed: \(error.localizedDescription, privacy: .public)")
         }
     }
     private func releaseCaptureView() {
+        captureToken = UUID()
         captureView?.delegate = nil
         captureView?.captureSession.stop(pauseARSession: true)
-        captureView = nil
+        captureView = nil; captureRelay = nil
     }
-    private func refreshExports() {
-        exportURLs = [jsonURL, usdzURL].filter { FileManager.default.fileExists(atPath: $0.path) }
+    fileprivate func receiveError(_ error: Error, token: UUID) {
+        dispatchPrecondition(condition: .onQueue(.main))
+        guard token == captureToken else { return }
+        fail(error)
     }
-    func captureView(shouldPresent roomDataForProcessing: CapturedRoomData, error: Error?) -> Bool {
-        if let error {
-            DispatchQueue.main.async { self.fail(error) }
-            return false
+    fileprivate func receive(_ result: CapturedRoom, error: Error?, token: UUID) {
+        dispatchPrecondition(condition: .onQueue(.main))
+        guard token == captureToken, processing || scanning else { return }
+        if let error { fail(error); return }
+        scanning = false; processing = false
+        let nextSnapshot = RoomSnapshot(room: result)
+        guard nextSnapshot.isValid else {
+            status = "No usable room or too many elements (limit 512). The last archive is retained."
+            releaseCaptureView(); return
         }
-        return true
-    }
-    func captureView(didPresent processedResult: CapturedRoom, error: Error?) {
-        DispatchQueue.main.async {
-            if let error { self.fail(error); return }
-            guard self.processing || self.scanning else { return }
-            self.scanning = false
-            self.processing = false
-            let snapshot = RoomSnapshot(room: processedResult)
-            guard snapshot.isValid else {
-                self.status = "No usable room or too many elements (limit 512). Start again and scan a single room."
-                self.releaseCaptureView()
-                return
-            }
-            self.capturedRoom = processedResult
-            self.snapshot = snapshot
-            self.releaseCaptureView()
-            self.persist(processedResult, snapshot: snapshot)
-        }
+        releaseCaptureView()
+        persist(result, snapshot: nextSnapshot)
     }
     private func fail(_ error: Error) {
-        scanning = false
-        processing = false
+        scanning = false; processing = false
         status = "Room capture error: \(error.localizedDescription). The last completed archive is retained."
         releaseCaptureView()
         expeditionLog.error("Room capture failed: \(error.localizedDescription, privacy: .public)")
     }
-    private func persist(_ room: CapturedRoom, snapshot: RoomSnapshot) {
+    private func persist(_ room: CapturedRoom, snapshot nextSnapshot: RoomSnapshot) {
+        let record = RoomArchiveRecord(version: 1, id: UUID(), processedAt: Date(), source: "Apple RoomPlan", units: "m")
+        let folder = archiveDirectory(record.id)
+        var committed = false
+        defer { if !committed { try? FileManager.default.removeItem(at: folder) } }
         do {
-            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
             var localDirectory = directory
-            var values = URLResourceValues()
-            values.isExcludedFromBackup = true
+            var values = URLResourceValues(); values.isExcludedFromBackup = true
             try localDirectory.setResourceValues(values)
-            let encoder = JSONEncoder()
-            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-            try encoder.encode(snapshot).write(to: snapshotURL, options: .atomic)
-            try encoder.encode(room).write(to: jsonURL, options: .atomic)
-            // Remove an old export before attempting a new one so sharing cannot mix captures.
-            if FileManager.default.fileExists(atPath: usdzURL.path) {
-                try FileManager.default.removeItem(at: usdzURL)
-            }
-            try room.export(to: usdzURL, exportOptions: .parametric)
-            refreshExports()
-            status = "Room processed and saved locally. Isometric view, JSON and USDZ are ready."
-            expeditionLog.info("Room archive saved: \(snapshot.elements.count) elements")
+            let encoder = JSONEncoder(); encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            try encoder.encode(nextSnapshot).write(to: folder.appendingPathComponent("room-view-v1.json"), options: .atomic)
+            try encoder.encode(room).write(to: folder.appendingPathComponent("captured-room.json"), options: .atomic)
+            try room.export(to: folder.appendingPathComponent("captured-room.usdz"), exportOptions: .parametric)
+            encoder.dateEncodingStrategy = .iso8601
+            let metadata = try encoder.encode(record)
+            try metadata.write(to: folder.appendingPathComponent("capture-metadata.json"), options: .atomic)
+            // Immutable capture files are complete before the one atomic publication operation.
+            try metadata.write(to: manifestURL, options: .atomic)
+            committed = true
+            activeArchive = record; snapshot = nextSnapshot; exportURLs = exports(in: folder)
+            status = "Room processed and saved locally. Isometric view, metadata, JSON and USDZ are ready."
+            removeOrphans(keeping: record.id)
+            expeditionLog.info("Room archive saved: \(nextSnapshot.elements.count) elements")
         } catch {
-            refreshExports()
-            status = "Room available in memory. Archive/export error: \(error.localizedDescription). Available files can still be shared."
+            status = "New room could not be saved: \(error.localizedDescription). The previous complete archive is retained."
             expeditionLog.error("Room export failed: \(error.localizedDescription, privacy: .public)")
         }
+    }
+    private func removeOrphans(keeping id: UUID) {
+        let captures = directory.appendingPathComponent("captures", isDirectory: true)
+        guard let folders = try? FileManager.default.contentsOfDirectory(at: captures, includingPropertiesForKeys: nil) else { return }
+        for folder in folders {
+            if let candidate = UUID(uuidString: folder.lastPathComponent), candidate != id {
+                try? FileManager.default.removeItem(at: folder)
+            }
+        }
+    }
+}
+
+// Each view delegate carries its immutable capture token; stale results cannot replace a newer scan.
+private final class RoomCaptureRelay: NSObject, RoomCaptureViewDelegate {
+    weak var owner: RoomCaptureModel?
+    let token: UUID
+    init(owner: RoomCaptureModel, token: UUID) { self.owner = owner; self.token = token }
+    func captureView(shouldPresent data: CapturedRoomData, error: Error?) -> Bool {
+        if let error {
+            let token = self.token
+            DispatchQueue.main.async { [weak owner] in owner?.receiveError(error, token: token) }
+            return false
+        }
+        return true
+    }
+    func captureView(didPresent result: CapturedRoom, error: Error?) {
+        let token = self.token
+        DispatchQueue.main.async { [weak owner] in owner?.receive(result, error: error, token: token) }
     }
 }

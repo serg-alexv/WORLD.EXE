@@ -2,52 +2,73 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 mkdir -p build/screenshots
-xcodebuild -version | tee build/toolchain.txt
-xcodegen --version | tee -a build/toolchain.txt
-swift --version | tee -a build/toolchain.txt
-git rev-parse HEAD > build/commit.txt
-swift test --package-path WorldCore 2>&1 | tee build/core-tests.log
-python3 scripts/GenerateAppIcon.py
-xcodegen generate
-xcrun simctl list devices available --json > build/simulators.json
-SIMULATOR_ID=$(python3 - <<'PY'
-import json
+core() {
+  xcodebuild -version | tee build/toolchain.txt
+  xcodegen --version | tee -a build/toolchain.txt
+  swift --version | tee -a build/toolchain.txt
+  git rev-parse HEAD > build/commit.txt
+  swift test --package-path WorldCore 2>&1 | tee build/core-tests.log
+  touch build/core.ok
+}
+simulator() {
+  python3 scripts/GenerateAppIcon.py
+  xcodegen generate
+  xcrun simctl list devices available --json > build/simulators.json
+  python3 - <<'PY'
+import json,re,subprocess
 from pathlib import Path
 p=json.loads(Path('build/simulators.json').read_text())
-devices=[d for group in p['devices'].values() for d in group if d.get('isAvailable') and d['name'].startswith('iPhone')]
-if not devices: raise SystemExit('No available iPhone simulator; cannot claim runtime validation')
-devices.sort(key=lambda d:(d.get('state')!='Booted',d['name']))
-print(devices[0]['udid'])
+choices=[]
+for runtime,devices in p['devices'].items():
+    m=re.search(r'iOS-(\d+)(?:-(\d+))?',runtime)
+    if not m or int(m[1])<18: continue
+    for d in devices:
+        if d.get('isAvailable') and d['name'].startswith('iPhone'):
+            choices.append((int(m[1]),int(m[2] or 0),d,runtime))
+if not choices: raise SystemExit('No iOS 18+ iPhone simulator; runtime validation unavailable')
+choices.sort(key=lambda x:(-x[0],-x[1],'Pro Max' not in x[2]['name'],x[2]['name']))
+_,_,d,runtime=choices[0]
+Path('build/simulator-id.txt').write_text(d['udid'])
+Path('build/selected-simulator.json').write_text(json.dumps({'name':d['name'],'runtime':runtime,'udid':d['udid']},indent=2))
+print('Selected simulator:',d['name'],runtime,flush=True)
+if d['state']!='Booted': subprocess.run(['xcrun','simctl','boot',d['udid']],check=True,timeout=60)
+subprocess.run(['xcrun','simctl','bootstatus',d['udid'],'-b'],check=True,timeout=240)
 PY
-)
-STATE=$(xcrun simctl list devices available --json | python3 -c 'import json,sys; p=json.load(sys.stdin); print(next(d["state"] for ds in p["devices"].values() for d in ds if d["udid"]==sys.argv[1]))' "$SIMULATOR_ID")
-if [ "$STATE" != "Booted" ]; then xcrun simctl boot "$SIMULATOR_ID"; fi
-xcrun simctl bootstatus "$SIMULATOR_ID" -b
-printf '%s\n' "$SIMULATOR_ID" > build/simulator-id.txt
-xcodebuild -project WorldEXE.xcodeproj -scheme WorldEXE \
-  -configuration Debug -destination "platform=iOS Simulator,id=$SIMULATOR_ID" \
-  -derivedDataPath build/DerivedData -resultBundlePath build/TestResults.xcresult \
-  -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO test 2>&1 | tee build/ios-tests.log
-APP=build/DerivedData/Build/Products/Debug-iphonesimulator/WorldEXE.app
-[ -d "$APP" ] || { echo 'Simulator app artifact missing'; exit 1; }
-xcrun simctl install "$SIMULATOR_ID" "$APP"
-xcrun simctl terminate "$SIMULATOR_ID" org.worldexe.prototype 2>/dev/null || true
-xcrun simctl launch "$SIMULATOR_ID" org.worldexe.prototype -ui-testing
-sleep 3
-xcrun simctl io "$SIMULATOR_ID" screenshot build/screenshots/training-launch.png
-xcodebuild -project WorldEXE.xcodeproj -scheme WorldEXE \
-  -configuration Release -destination 'generic/platform=iOS' \
-  -derivedDataPath build/DeviceData CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO \
-  CODE_SIGN_IDENTITY='' build 2>&1 | tee build/device-build.log
-ditto -c -k --sequesterRsrc --keepParent "$APP" build/WORLD.EXE-Simulator.zip
-ditto -c -k --sequesterRsrc --keepParent \
-  build/DeviceData/Build/Products/Release-iphoneos/WorldEXE.app build/WORLD.EXE-UNSIGNED-device.zip
-cat > build/VALIDATION.md <<EOF
-# Build validation receipt
-Commit: $(cat build/commit.txt)
-Pure Swift core tests: passed (see core-tests.log).
-Simulator UI tests: passed (see TestResults.xcresult and ios-tests.log).
-iOS device target: compiled WITHOUT signing; not installable as a TestFlight app.
-Simulator launch screenshot: screenshots/training-launch.png.
-Physical LiDAR, RoomPlan accuracy, thermal behavior and real gameplay: NOT validated by this CI.
-EOF
+  xcodebuild -project WorldEXE.xcodeproj -scheme WorldEXE -configuration Debug \
+    -destination "platform=iOS Simulator,id=$(cat build/simulator-id.txt)" \
+    -derivedDataPath build/DerivedData -resultBundlePath build/BuildForTesting.xcresult \
+    CODE_SIGNING_ALLOWED=NO build-for-testing 2>&1 | tee build/simulator-build.log
+  touch build/simulator-build.ok
+}
+ui() {
+  local id; id=$(cat build/simulator-id.txt)
+  xcodebuild -project WorldEXE.xcodeproj -scheme WorldEXE -configuration Debug \
+    -destination "platform=iOS Simulator,id=$id" -derivedDataPath build/DerivedData \
+    -resultBundlePath build/TestResults.xcresult -parallel-testing-enabled NO \
+    -test-timeouts-enabled YES -default-test-execution-time-allowance 240 \
+    -maximum-test-execution-time-allowance 300 CODE_SIGNING_ALLOWED=NO \
+    test-without-building 2>&1 | tee build/ios-tests.log
+  touch build/ui.ok
+  xcrun simctl install "$id" build/DerivedData/Build/Products/Debug-iphonesimulator/WorldEXE.app
+  xcrun simctl terminate "$id" org.worldexe.prototype 2>/dev/null || true
+  xcrun simctl launch "$id" org.worldexe.prototype -ui-testing
+  sleep 3
+  xcrun simctl io "$id" screenshot build/screenshots/training-launch.png
+  xcrun xcresulttool export attachments --path build/TestResults.xcresult --output-path build/screenshots/test-attachments || echo 'Attachment export unavailable; original xcresult is retained.'
+}
+device() {
+  xcodebuild -project WorldEXE.xcodeproj -scheme WorldEXE -configuration Release \
+    -destination 'generic/platform=iOS' -derivedDataPath build/DeviceData \
+    CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY='' \
+    build 2>&1 | tee build/device-build.log
+  touch build/device.ok
+  ditto -c -k --sequesterRsrc --keepParent build/DerivedData/Build/Products/Debug-iphonesimulator/WorldEXE.app build/WORLD.EXE-Simulator.zip
+  ditto -c -k --sequesterRsrc --keepParent build/DeviceData/Build/Products/Release-iphoneos/WorldEXE.app build/WORLD.EXE-UNSIGNED-device.zip
+  for gate in core simulator-build ui device; do [ -f "build/$gate.ok" ] || { echo "Missing validation gate: $gate"; exit 1; }; done
+  printf '# Validation receipt\nCommit: %s\nCore tests: passed.\nSimulator build and gameplay UI tests: passed.\niOS device target: compiled WITHOUT signing.\nPhysical LiDAR/RoomPlan and human playtest: NOT validated.\nTestFlight: NOT uploaded by this workflow.\n' "$(cat build/commit.txt)" > build/VALIDATION.md
+}
+case "${1:-all}" in
+ core) core;; simulator) simulator;; ui) ui;; device) device;;
+ all) core; simulator; ui; device;;
+ *) echo 'Usage: ci.sh [all|core|simulator|ui|device]'; exit 2;;
+esac

@@ -37,7 +37,7 @@ struct HomeView: View {
 
 struct TrainingScreen: View {
     @ObservedObject var game: GameStore
-    @State private var zoom = 15.0
+    @State private var zoom = 1.0
     var body: some View {
         VStack(spacing: 9) {
             HStack {
@@ -63,9 +63,9 @@ struct TrainingScreen: View {
             .overlay(RoundedRectangle(cornerRadius: 18).stroke(Palette.teal.opacity(0.3)))
             HStack(spacing: 12) {
                 Image(systemName: "minus.magnifyingglass")
-                Slider(value: $zoom, in: 10...22).accessibilityLabel("Camera zoom")
+                Slider(value: $zoom, in: 0.7...1.6).accessibilityLabel("Camera zoom")
                 Image(systemName: "plus.magnifyingglass")
-                Button("Reset camera") { zoom = 15 }.font(.caption).accessibilityIdentifier("resetCamera")
+                Button("Reset camera") { zoom = 1 }.font(.caption).accessibilityIdentifier("resetCamera")
             }.font(.caption).foregroundStyle(.secondary)
             VStack(alignment: .leading, spacing: 8) {
                 Text(game.message).font(.caption).frame(maxWidth: .infinity, alignment: .leading)

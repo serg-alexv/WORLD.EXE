@@ -89,7 +89,7 @@ struct RoomCaptureHost: UIViewRepresentable {
     func makeUIView(context: Context) -> UIView { model.captureView ?? UIView() }
     func updateUIView(_ view: UIView, context: Context) {}
     static func dismantleUIView(_ view: UIView, coordinator: ()) {
-        // The model retains the capture view until RoomPlan finishes processing.
-        (view as? RoomCaptureView)?.captureSession.stop(pauseARSession: true)
+        // The model owns stop/processing; onDisappear calls stop exactly once.
+        // Keep the view alive there until its processed-room callback arrives.
     }
 }

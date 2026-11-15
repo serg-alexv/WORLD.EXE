@@ -15,7 +15,7 @@ struct CapturedRoomScene: UIViewRepresentable {
         return view
     }
     func updateUIView(_ view: SCNView, context: Context) {
-        context.coordinator.camera.camera?.orthographicScale = context.coordinator.baseScale * zoom
+        context.coordinator.camera.camera?.orthographicScale = context.coordinator.baseScale / max(0.1, zoom)
     }
     final class Coordinator {
         let camera = SCNNode()

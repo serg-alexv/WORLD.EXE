@@ -21,8 +21,17 @@ jobs:
           xcode-version: '26.3'
       - name: Install project generator
         run: brew install xcodegen
-      - name: Core tests, simulator UI tests, device compilation
-        run: bash scripts/ci.sh
+      - name: Core gameplay tests
+        run: bash scripts/ci.sh core
+      - name: Boot simulator and compile iOS tests
+        timeout-minutes: 12
+        run: bash scripts/ci.sh simulator
+      - name: Complete expedition through UI and save screenshots
+        timeout-minutes: 12
+        run: bash scripts/ci.sh ui
+      - name: Compile unsigned device app and package evidence
+        timeout-minutes: 8
+        run: bash scripts/ci.sh device
       - name: Preserve validation evidence and build artifacts
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -38,4 +47,5 @@ jobs:
             build/*.zip
             build/screenshots
             build/TestResults.xcresult
+            build/BuildForTesting.xcresult
             WorldEXE.xcodeproj
