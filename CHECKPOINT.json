@@ -8,7 +8,7 @@
   ],
   "format": 1,
   "source_branch": "feature/signal-siege-manual",
-  "source_head": "573d541c941516bda6267015111036e6fedb3b6d",
+  "source_head": "64464ba276203e1b1632f5320b7675fdd394109a",
   "status": "source recovery snapshot, not a validated build",
   "workspace": "siege-manual"
 }

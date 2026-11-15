@@ -109,7 +109,7 @@ public struct SignalSiege: Codable, Equatable, Sendable {
         case .victory: return "Relay recovered. Operator extracted."
         case .defeat: return health == 0 ? "Operator signal lost. Replay and change your route." : "Siege window closed. Replay and reach extraction sooner."
         case .active:
-            return relaySecured ? "Return to the shielded extraction pad and extract for 1 AP." : "Secure the relay at (5, 1), then return to extraction."
+            return relaySecured ? "Return to the shielded extraction pad and extract for 1 AP." : "Secure the relay at R, then return to extraction at E."
         }
     }
 
