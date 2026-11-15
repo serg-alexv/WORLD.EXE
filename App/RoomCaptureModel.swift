@@ -197,7 +197,20 @@ final class RoomCaptureModel: NSObject, ObservableObject {
 private final class RoomCaptureRelay: NSObject, RoomCaptureViewDelegate {
     weak var owner: RoomCaptureModel?
     let token: UUID
-    init(owner: RoomCaptureModel, token: UUID) { self.owner = owner; self.token = token }
+    init(owner: RoomCaptureModel, token: UUID) {
+        self.owner = owner; self.token = token
+        super.init()
+    }
+    // RoomCaptureViewDelegate inherits NSCoding. Only the immutable token is encoded;
+    // a restored relay is deliberately detached from any live camera session.
+    required init?(coder: NSCoder) {
+        guard let saved = coder.decodeObject(of: NSUUID.self, forKey: "captureToken") else { return nil }
+        token = saved as UUID
+        super.init()
+    }
+    func encode(with coder: NSCoder) {
+        coder.encode(token as NSUUID, forKey: "captureToken")
+    }
     func captureView(shouldPresent data: CapturedRoomData, error: Error?) -> Bool {
         if let error {
             let token = self.token
