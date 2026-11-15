@@ -24,6 +24,21 @@ final class PersonalFeedTests: XCTestCase {
         let props = try root.resourceValues(forKeys: [.isExcludedFromBackupKey])
         XCTAssertEqual(props.isExcludedFromBackup, true)
     }
+    func testRealKeychainRoundTripUsesDistinctTestService() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let id = UUID(), original = try fixture()
+        let disk = PrivateVault(root: root, keychainTestID: id)
+        do {
+            try await disk.save(original)
+            let reopened = PrivateVault(root: root, keychainTestID: id)
+            let restored = try await reopened.load()
+            XCTAssertEqual(restored, original)
+            try await disk.erase()
+        } catch {
+            try? await disk.erase()
+            throw error
+        }
+    }
     func testWrongKeyAndCorruptVaultFailWithoutOverwrite() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }

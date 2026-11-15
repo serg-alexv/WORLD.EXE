@@ -6,11 +6,22 @@ import FeedStore
 
 /// Standalone app container; no app group, game journal, cloud sync or network access.
 actor PrivateVault {
-    enum VaultFailure: Error { case locked, keyUnavailable, corrupt }
+    enum VaultFailure: Error, LocalizedError {
+        case locked, keyUnavailable, corrupt, keychain(OSStatus)
+        var errorDescription: String? {
+            switch self {
+            case .keychain(let status): return "Хранилище ключей недоступно (код \(status)). Данные не перезаписаны."
+            case .locked: return "Разблокируйте устройство для доступа к архиву."
+            case .keyUnavailable: return "Ключ локального архива недоступен. Данные не перезаписаны."
+            case .corrupt: return "Защищённый архив не прошёл проверку. Данные не перезаписаны."
+            }
+        }
+    }
     private let root: URL
     private let injectedKey: SymmetricKey?
-    private let service = "org.worldexe.personalfeed.vault.v1"
-    init(root: URL? = nil, testKey: SymmetricKey? = nil) {
+    private let service: String
+    init(root: URL? = nil, testKey: SymmetricKey? = nil, keychainTestID: UUID? = nil) {
+        service = "org.worldexe.personalfeed.vault.v1" + (keychainTestID.map { ".test." + $0.uuidString } ?? "")
         self.root = root ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("PrivateFeed", isDirectory: true)
         self.injectedKey = testKey
@@ -24,14 +35,17 @@ actor PrivateVault {
         var result: CFTypeRef?
         let status = SecItemCopyMatching(query as CFDictionary, &result)
         if status == errSecSuccess, let bytes = result as? Data, bytes.count == 32 { return SymmetricKey(data: bytes) }
-        guard status == errSecItemNotFound && create else { throw VaultFailure.keyUnavailable }
+        if status == errSecSuccess { throw VaultFailure.keyUnavailable }
+        guard status == errSecItemNotFound else { throw VaultFailure.keychain(status) }
+        guard create else { throw VaultFailure.keyUnavailable }
         let key = SymmetricKey(size: .bits256)
         let data = key.withUnsafeBytes { Data($0) }
         let insert: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
                                     kSecAttrService as String: service, kSecAttrAccount as String: "local-vault-key",
                                     kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
                                     kSecValueData as String: data]
-        guard SecItemAdd(insert as CFDictionary, nil) == errSecSuccess else { throw VaultFailure.keyUnavailable }
+        let added = SecItemAdd(insert as CFDictionary, nil)
+        guard added == errSecSuccess else { throw VaultFailure.keychain(added) }
         return key
     }
     func load() throws -> FeedVault {

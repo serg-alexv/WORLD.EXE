@@ -65,7 +65,7 @@ import FeedStore
             return true
         } catch {
             guard token == epoch else { return false }
-            message = "Не удалось сохранить. Изменение не применено."; busy = false
+            message = (error as? PrivateVault.VaultFailure)?.errorDescription ?? "Не удалось сохранить. Изменение не применено."; busy = false
             return false
         }
     }
