@@ -9,6 +9,7 @@ import WorldCore
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
     @State private var zoom = 1.0
+    @State private var focusCapsule = true
     @State private var advice = ""
     @State private var asking = false
     private var testMode: Bool { ProcessInfo.processInfo.arguments.contains("-contact-hot-seat") }
@@ -71,7 +72,9 @@ import WorldCore
                 #endif
             } else {
                 Text(geometry.synthetic ? "Источник: вымышленный стол • игровая модель" : "Источник: оценка RoomPlan • узлы: игровая модель").font(.caption)
-                ContactMapView(room: geometry, state: s, root: c.root, zoom: zoom).frame(height: 260).clipShape(RoundedRectangle(cornerRadius: 12))
+                ContactMapView(room: geometry, state: s, root: c.root, zoom: zoom, focusCapsule: focusCapsule).frame(height: 260).clipShape(RoundedRectangle(cornerRadius: 12))
+                Button(focusCapsule ? "Показать всю комнату" : "Приблизить капсулу") { focusCapsule.toggle(); zoom = 1 }
+                    .accessibilityIdentifier("contact.mapFocus")
                 HStack {
                     Button("− Масштаб") { zoom = max(0.5,zoom - 0.25) }.accessibilityLabel("Уменьшить карту")
                     Button("+ Масштаб") { zoom = min(3,zoom + 0.25) }.accessibilityLabel("Увеличить карту")

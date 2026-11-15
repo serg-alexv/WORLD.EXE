@@ -68,6 +68,7 @@ struct ContactMapView: UIViewRepresentable {
     let state: ContactPublicState
     let root: [Float]?
     let zoom: Double
+    let focusCapsule: Bool
     func makeCoordinator() -> Coordinator { Coordinator() }
     func makeUIView(context: Context) -> SCNView {
         let v = SCNView(); v.backgroundColor = UIColor(red: 0.025,green: 0.045,blue: 0.075,alpha: 1)
@@ -75,25 +76,27 @@ struct ContactMapView: UIViewRepresentable {
         v.accessibilityLabel = "Изометрическая карта: комната, капсула и три пронумерованных узла без символов"
         return v
     }
-    func updateUIView(_ view: SCNView, context: Context) { context.coordinator.update(view, room: room, state: state, placement: root, zoom: zoom) }
+    func updateUIView(_ view: SCNView, context: Context) { context.coordinator.update(view, room: room, state: state, placement: root, zoom: zoom, focusCapsule: focusCapsule) }
     final class Coordinator {
         private var session: UUID?
         private let camera = SCNNode()
         private var game = SCNNode()
         private var framedPlacement = false
+        private var lastFocus: Bool?
         private var scale = 3.0
-        func update(_ view: SCNView, room: ContactRoomDTO, state: ContactPublicState, placement: [Float]?, zoom: Double) {
+        func update(_ view: SCNView, room: ContactRoomDTO, state: ContactPublicState, placement: [Float]?, zoom: Double, focusCapsule: Bool) {
             if session != state.session {
                 session = state.session; framedPlacement = false; let scene = SCNScene()
                 ContactArt.surfaces(room, into: scene.rootNode); game = ContactArt.game(); scene.rootNode.addChildNode(game)
                 camera.camera = SCNCamera(); camera.camera?.usesOrthographicProjection = true; camera.camera?.zNear = 0.01
-                scene.rootNode.addChildNode(camera); view.scene = scene; view.pointOfView = camera; frame(room, placement)
+                scene.rootNode.addChildNode(camera); view.scene = scene; view.pointOfView = camera; frame(room, placement, focusCapsule)
             }
             game.isHidden = placement == nil
-            if let placement { game.simdTransform = ContactMath.matrix(placement); if !framedPlacement { frame(room, placement); framedPlacement = true } }
+            if let placement { game.simdTransform = ContactMath.matrix(placement); if !framedPlacement { frame(room, placement, focusCapsule); framedPlacement = true } }
+            if lastFocus != focusCapsule { frame(room, placement, focusCapsule); lastFocus = focusCapsule }
             ContactArt.update(game, state: state); camera.camera?.orthographicScale = scale / max(0.5,min(3,zoom))
         }
-        private func frame(_ room: ContactRoomDTO, _ placement: [Float]?) {
+        private func frame(_ room: ContactRoomDTO, _ placement: [Float]?, _ focus: Bool) {
             var (lo,hi) = room.bounds
             if let placement {
                 let m = ContactMath.matrix(placement)
@@ -102,9 +105,12 @@ struct ContactMapView: UIViewRepresentable {
                     lo = simd_min(lo,v - SIMD3(repeating: 0.08)); hi = simd_max(hi,v + SIMD3(repeating: 0.08))
                 }
             }
-            let center = (lo+hi)/2, span = max(1,simd_length(hi-lo)); scale = Double(span * 1.25)
+            let roomSpan = max(1,simd_length(hi-lo))
+            var center = (lo+hi)/2, span = roomSpan
+            if focus, let placement { center = SIMD3(placement[12], placement[13] + 0.05, placement[14]); span = 0.75 }
+            scale = Double(span * 1.25)
             camera.simdPosition = center + SIMD3(repeating: span); camera.look(at: SCNVector3(center.x,center.y,center.z))
-            camera.camera?.zFar = Double(span * 8 + 10)
+            camera.camera?.zFar = Double(roomSpan * 8 + 10)
         }
     }
 }

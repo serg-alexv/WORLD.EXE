@@ -29,6 +29,10 @@ final class ContactUITests: XCTestCase {
         tap("contact.role.researcher"); tap("contact.capsule"); tap("contact.extract")
         XCTAssertTrue(app.staticTexts["contact.success"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.staticTexts["contact.demo.banner"].exists)
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "CONTACT cooperative role-switch mission completed"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
         tap("contact.replay")
         XCTAssertFalse(app.staticTexts["contact.success"].exists)
         tap("contact.node.0"); tap("contact.inspect")

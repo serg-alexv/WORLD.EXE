@@ -1,3 +1,11 @@
+# Edge intelligence status — CONTACT 0.2.0
+
+The implementation below supersedes the original placeholder roadmap. Native GGUF generation is now linked through `LocalLlama/LlamaBridge`; `OnDeviceBrain` and `BrainScreen` expose explicit import/download/load/generate/stop/unload/delete. No Apple/cloud response is substituted for the GGUF UI. The existing Training advisor remains a separately labeled Apple Foundation Models/rules component.
+
+Pinned runtime/model manifests: `Dependencies/models.json`. Model compatibility and physical-device performance remain explicit test gates. CONTACT hints receive only role/public progress and never execute actions. No Rheknel code or Rhea project has been imported. No distillation is claimed.
+
+## Historical planning context (not current implementation status)
+
 # WORLD.EXE / Edge Tactical Intelligence
 
 ## Deployment boundary

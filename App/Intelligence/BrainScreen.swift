@@ -50,6 +50,7 @@ struct BrainScreen: View {
                             .accessibilityIdentifier("ggufLoad")
                         Button("Выгрузить") { Task { await brain.unload() } }
                             .buttonStyle(.bordered).disabled(!brain.isLoaded && !brain.isBusy)
+                            .accessibilityIdentifier("ggufUnload")
                     }.frame(minHeight: 44)
                     Text("Проверка офлайн").font(.headline)
                     Text("После установки и загрузки модели можно отключить интернет. Режим пары требует локальной сети, но не интернет-сервера.")

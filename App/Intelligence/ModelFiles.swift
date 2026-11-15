@@ -19,8 +19,13 @@ enum ModelFiles {
     static let recommendedSHA = "9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031"
     static let recommendedURL = URL(string: "https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/resolve/23749fefcc72300e3a2ad315e1317431b06b590a/Qwen3-0.6B-Q8_0.gguf")!
     static var root: URL {
-        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Models", isDirectory: true)
+        var folder = "Models"
+        #if DEBUG
+        // UI-test fixture is local app-container data, never a release download or fake engine.
+        if ProcessInfo.processInfo.arguments.contains("-gguf-ci") { folder = "Models-CI" }
+        #endif
+        return FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent(folder, isDirectory: true)
     }
     static var recordURL: URL { root.appendingPathComponent("installed-v1.json") }
     static func restore() -> LocalModelRecord? {
