@@ -67,7 +67,7 @@ xcodebuild -project WorldEXE.xcodeproj -scheme WorldEXE -configuration Release \
   CURRENT_PROJECT_VERSION="$BUILD_NUMBER" MARKETING_VERSION=0.2.0 archive
 APP=build/WorldEXE.xcarchive/Products/Applications/WorldEXE.app
 codesign --verify --deep --strict "$APP"
-[[ "$(plutil -extract CFBundleIdentifier raw -o - "$APP/Info.plist")" == "$PRODUCT_BUNDLE_IDENTIFIER" ]] || exit 2
+python3 scripts/verify_app_identity.py "$APP" --version 0.2.0 --build "$BUILD_NUMBER" --bundle "$PRODUCT_BUNDLE_IDENTIFIER"
 python3 - <<'PY'
 import os, plistlib
 from pathlib import Path
@@ -77,6 +77,7 @@ PY
 xcodebuild -exportArchive -archivePath build/WorldEXE.xcarchive -exportPath build/export -exportOptionsPlist build/ExportOptions.plist
 IPA=$(find build/export -maxdepth 1 -name '*.ipa' -print -quit)
 [[ -n "$IPA" ]] || { echo 'Signed IPA not produced.'; exit 2; }
+python3 scripts/verify_app_identity.py "$IPA" --version 0.2.0 --build "$BUILD_NUMBER" --bundle "$PRODUCT_BUNDLE_IDENTIFIER"
 UPLOADED=false
 if [[ "${UPLOAD_TO_TESTFLIGHT:-false}" == true ]]; then
   mkdir -p "$WORK/private_keys"
