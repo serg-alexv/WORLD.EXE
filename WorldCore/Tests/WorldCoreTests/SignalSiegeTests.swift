@@ -63,7 +63,8 @@ final class SignalSiegeTests: XCTestCase {
         ranks.submit(game)
         ranks.submit(game)
         XCTAssertEqual(ranks.entries.count, 0)
-    }    func testCodableRoundTrip() throws {
+    }
+    func testCodableRoundTrip() throws {
         let game = SiegeGame()
         XCTAssertEqual(try JSONDecoder().decode(SiegeGame.self, from: JSONEncoder().encode(game)), game)
     }
