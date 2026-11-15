@@ -1,0 +1,9 @@
+Generated/
+PersonalFeed.xcodeproj/
+Core/.build/
+Core/.swiftpm/
+build/
+PrivateData/
+Imports/
+Exports/
+*.aesgcm

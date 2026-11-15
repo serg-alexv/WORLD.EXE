@@ -1,0 +1,61 @@
+name: Personal Feed isolated demo
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'PersonalClient/**'
+      - 'scripts/personal_feed_ci.sh'
+      - 'scripts/tests/test_personal_feed_*.py'
+      - '.github/workflows/personal-feed.yml'
+  pull_request:
+    paths:
+      - 'PersonalClient/**'
+      - 'scripts/personal_feed_ci.sh'
+      - 'scripts/tests/test_personal_feed_*.py'
+      - '.github/workflows/personal-feed.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: personal-feed-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  personal-feed:
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: maxim-lobanov/setup-xcode@1242409711ff5721add51979e9e11e23ebb7e5a4
+        with:
+          xcode-version: '26.3'
+      - run: brew install xcodegen
+      - name: Architecture guards and portable feed tests
+        timeout-minutes: 5
+        run: bash scripts/personal_feed_ci.sh core
+      - name: Compile private client and native test targets
+        timeout-minutes: 12
+        run: bash scripts/personal_feed_ci.sh simulator
+      - name: Encrypted storage, HTTP isolation and synthetic demo UI
+        timeout-minutes: 18
+        run: bash scripts/personal_feed_ci.sh ui
+      - name: Compile unsigned device app and preserve identity receipt
+        timeout-minutes: 8
+        run: bash scripts/personal_feed_ci.sh device
+      - name: Preserve synthetic-only validation evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: PersonalFeed-validation-${{ github.run_id }}-${{ github.run_attempt }}
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            build/personal-feed/*.log
+            build/personal-feed/*.txt
+            build/personal-feed/*.json
+            build/personal-feed/simulator-entitlements.plist
+            build/personal-feed/*.md
+            build/personal-feed/*.zip
+            build/personal-feed/screenshots
+            build/personal-feed/TestResults.xcresult
+            build/personal-feed/BuildForTesting.xcresult
+            PersonalClient/PersonalFeed.xcodeproj
