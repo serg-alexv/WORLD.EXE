@@ -64,10 +64,10 @@ xcodebuild -project WorldEXE.xcodeproj -scheme WorldEXE -configuration Release \
   -destination 'generic/platform=iOS' -archivePath build/WorldEXE.xcarchive \
   DEVELOPMENT_TEAM="$DEVELOPMENT_TEAM" CODE_SIGN_STYLE=Manual \
   CODE_SIGN_IDENTITY="$IDENTITY" PROVISIONING_PROFILE_SPECIFIER="$PROVISIONING_PROFILE_NAME" \
-  CURRENT_PROJECT_VERSION="$BUILD_NUMBER" MARKETING_VERSION=0.2.1 archive
+  CURRENT_PROJECT_VERSION="$BUILD_NUMBER" MARKETING_VERSION=0.4.0 archive
 APP=build/WorldEXE.xcarchive/Products/Applications/WorldEXE.app
 codesign --verify --deep --strict "$APP"
-python3 scripts/verify_app_identity.py "$APP" --version 0.2.1 --build "$BUILD_NUMBER" --bundle "$PRODUCT_BUNDLE_IDENTIFIER"
+python3 scripts/verify_app_identity.py "$APP" --version 0.4.0 --build "$BUILD_NUMBER" --bundle "$PRODUCT_BUNDLE_IDENTIFIER"
 python3 - <<'PY'
 import os, plistlib
 from pathlib import Path
@@ -77,7 +77,7 @@ PY
 xcodebuild -exportArchive -archivePath build/WorldEXE.xcarchive -exportPath build/export -exportOptionsPlist build/ExportOptions.plist
 IPA=$(find build/export -maxdepth 1 -name '*.ipa' -print -quit)
 [[ -n "$IPA" ]] || { echo 'Signed IPA not produced.'; exit 2; }
-python3 scripts/verify_app_identity.py "$IPA" --version 0.2.1 --build "$BUILD_NUMBER" --bundle "$PRODUCT_BUNDLE_IDENTIFIER"
+python3 scripts/verify_app_identity.py "$IPA" --version 0.4.0 --build "$BUILD_NUMBER" --bundle "$PRODUCT_BUNDLE_IDENTIFIER"
 UPLOADED=false
 if [[ "${UPLOAD_TO_TESTFLIGHT:-false}" == true ]]; then
   mkdir -p "$WORK/private_keys"
@@ -89,4 +89,4 @@ PY
   API_PRIVATE_KEYS_DIR="$WORK/private_keys" xcrun altool --upload-app --type ios -f "$IPA" --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID"
   UPLOADED=true
 fi
-printf '# Release receipt\nCommit: %s\nBuild: 0.2.1 (%s)\nSignature verified: yes\nUpload command accepted: %s\nApple processing and TestFlight group availability: must be checked independently.\n' "$GITHUB_SHA" "$BUILD_NUMBER" "$UPLOADED" > build/RELEASE_RECEIPT.md
+printf '# Release receipt\nCommit: %s\nBuild: 0.4.0 (%s)\nSignature verified: yes\nUpload command accepted: %s\nApple processing and TestFlight group availability: must be checked independently.\n' "$GITHUB_SHA" "$BUILD_NUMBER" "$UPLOADED" > build/RELEASE_RECEIPT.md
