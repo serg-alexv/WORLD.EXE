@@ -1,0 +1,51 @@
+name: TestFlight release
+on:
+  workflow_dispatch:
+    inputs:
+      upload:
+        description: Upload the signed build to an existing App Store Connect app record
+        type: boolean
+        required: true
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: testflight-main
+  cancel-in-progress: false
+jobs:
+  validate:
+    if: github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/ios.yml
+  sign-and-export:
+    needs: validate
+    runs-on: macos-15
+    timeout-minutes: 30
+    environment: testflight
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: maxim-lobanov/setup-xcode@1242409711ff5721add51979e9e11e23ebb7e5a4
+        with:
+          xcode-version: '26.3'
+      - run: brew install xcodegen
+      - name: Sign, verify, export, optionally upload
+        run: bash scripts/release.sh
+        env:
+          DEVELOPMENT_TEAM: ${{ vars.DEVELOPMENT_TEAM }}
+          PRODUCT_BUNDLE_IDENTIFIER: ${{ vars.PRODUCT_BUNDLE_IDENTIFIER }}
+          PROVISIONING_PROFILE_NAME: ${{ vars.PROVISIONING_PROFILE_NAME }}
+          ASC_KEY_ID: ${{ vars.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ vars.ASC_ISSUER_ID }}
+          APPLE_DISTRIBUTION_P12_BASE64: ${{ secrets.APPLE_DISTRIBUTION_P12_BASE64 }}
+          APPLE_DISTRIBUTION_P12_PASSWORD: ${{ secrets.APPLE_DISTRIBUTION_P12_PASSWORD }}
+          APP_STORE_PROFILE_BASE64: ${{ secrets.APP_STORE_PROFILE_BASE64 }}
+          ASC_PRIVATE_KEY_P8_BASE64: ${{ secrets.ASC_PRIVATE_KEY_P8_BASE64 }}
+          UPLOAD_TO_TESTFLIGHT: ${{ inputs.upload }}
+      - name: Preserve signed app and release receipt
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: WORLD.EXE-signed-${{ github.sha }}
+          retention-days: 7
+          if-no-files-found: error
+          path: |
+            build/export/*.ipa
+            build/RELEASE_RECEIPT.md

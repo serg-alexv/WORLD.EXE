@@ -1,7 +1,8 @@
 import SwiftUI
+
 @main
 struct WorldEXEApp: App {
     var body: some Scene {
-        WindowGroup { HomeView() }
+        WindowGroup { HomeView().preferredColorScheme(.dark).preferredColorScheme(.dark) }
     }
 }

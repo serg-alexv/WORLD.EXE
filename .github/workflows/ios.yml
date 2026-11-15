@@ -1,16 +1,67 @@
-name: iOS compile
+name: iOS build and gameplay tests
 on:
   push:
+    branches: [main]
   pull_request:
   workflow_dispatch:
+  workflow_call:
+permissions:
+  contents: read
+concurrency:
+  group: ios-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
-  build:
+  build-and-test:
     runs-on: macos-15
+    timeout-minutes: 35
     steps:
-      - uses: actions/checkout@v4
-      - uses: maxim-lobanov/setup-xcode@v1
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: maxim-lobanov/setup-xcode@1242409711ff5721add51979e9e11e23ebb7e5a4
         with:
-          xcode-version: latest-stable
-      - run: brew install xcodegen
-      - run: xcodegen generate
-      - run: xcodebuild -project WorldEXE.xcodeproj -scheme WorldEXE -sdk iphonesimulator -configuration Debug -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
+          xcode-version: '26.3'
+      - name: Install project generator
+        run: brew install xcodegen
+      - name: Restore SDK module cache
+        id: modules
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          key: sdk-${{ runner.os }}-${{ runner.arch }}-xcode26.3-v1
+          path: |
+            build/DerivedData/ModuleCache.noindex
+            build/DerivedData/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules
+      - name: Core gameplay tests
+        run: bash scripts/ci.sh core
+      - name: Compile iOS simulator app and tests
+        timeout-minutes: 12
+        run: bash scripts/ci.sh simulator
+      - name: Boot simulator and complete expedition through UI
+        timeout-minutes: 12
+        run: bash scripts/ci.sh ui
+      - name: Compile unsigned device app and package evidence
+        timeout-minutes: 8
+        run: bash scripts/ci.sh device
+      - name: Retain SDK modules for subsequent compiler iterations
+        if: always() && steps.modules.outputs.cache-hit != 'true'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          key: sdk-${{ runner.os }}-${{ runner.arch }}-xcode26.3-v1
+          path: |
+            build/DerivedData/ModuleCache.noindex
+            build/DerivedData/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules
+      - name: Preserve validation evidence and build artifacts
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: WORLD.EXE-validation-${{ github.sha }}
+          retention-days: 14
+          if-no-files-found: warn
+          path: |
+            build/*.log
+            build/*.txt
+            build/*.md
+            build/*.json
+            build/*.zip
+            build/screenshots
+            build/TestResults.xcresult
+            build/BuildForTesting.xcresult
+            WorldEXE.xcodeproj
