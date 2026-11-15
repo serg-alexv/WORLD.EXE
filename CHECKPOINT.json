@@ -1,0 +1,14 @@
+{
+  "excludes": [
+    "credentials",
+    "model weights",
+    "binaries",
+    "build output",
+    "private ops files"
+  ],
+  "format": 1,
+  "source_branch": "feature/signal-siege-manual",
+  "source_head": "b38347737e0c67b84ea0d68c83711d6c87909795",
+  "status": "source recovery snapshot, not a validated build",
+  "workspace": "siege-manual"
+}
