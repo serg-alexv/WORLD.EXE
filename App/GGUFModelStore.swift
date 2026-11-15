@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 import CryptoKit
 
 /// Opt-in GGUF asset management. Downloading a model does not enable inference:

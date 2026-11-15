@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 import WorldCore
 #if canImport(FoundationModels)
 import FoundationModels
