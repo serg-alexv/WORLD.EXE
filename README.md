@@ -1,5 +1,16 @@
 # WORLD.EXE — CONTACT testbed
 
+## Independent product boundaries
+
+| Product | Build entrypoint | Data boundary |
+| --- | --- | --- |
+| WORLD.EXE game / sensors | `project.yml`, scheme `WorldEXE` | `WorldCore`, `EvidenceCore`, `LocalLlama`; existing game identity |
+| Personal Feed demo | `PersonalClient/project.yml`, scheme `PersonalFeed` | `FeedDomain`, `FeedAdapters`, `FeedStore`; independent app/container/key |
+
+The [personal-client refactor](docs/PERSONAL_FEED.md) adds an isolated native demo for explicit personal-data import and user-owned HTTPS feeds. It does not connect a live Hornet account or reuse private records in the game. PersonalClient does not share an App Group, model runtime, observations or leaderboards with WORLD.EXE. `bash scripts/personal_feed_ci.sh` validates its own source/storage/UI/device target without signing or changing the published game.
+
+The sections below describe the existing WORLD.EXE game, not the personal client.
+
 **0.2.0 source milestone:** paired researcher/operator mission and actual local GGUF inference.
 See [CONTACT_TESTBED](docs/CONTACT_TESTBED.md) for the agreed gameplay, room/AR coordinate contract, pairing, model setup and hardware acceptance.
 

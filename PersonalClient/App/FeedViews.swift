@@ -136,9 +136,10 @@ private struct ItemDetailView: View {
                     TextField("Новая личная заметка", text: $note).accessibilityIdentifier("feed.note")
                     Button("Сохранить заметку") {
                         let text = note
-                        Task { await session.addNote(text, item: item); note = "" }
+                        Task { if await session.addNote(text, item: item) { note = "" } }
                     }.disabled(session.busy || note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                         .accessibilityIdentifier("feed.saveNote")
+                    if !session.message.isEmpty { Text(session.message).font(.caption).accessibilityIdentifier("feed.noteStatus") }
                 }
                 Section {
                     Text("Автоматическая отправка текста в Qwen или облачную модель отключена. Контракт AI-аннотаций отделён от записей; генератор к личной ленте ещё не подключён.")

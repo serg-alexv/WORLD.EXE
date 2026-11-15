@@ -4,15 +4,34 @@ cd "$(dirname "$0")/.."
 ROOT="$PWD"
 OUT="$ROOT/build/personal-feed"
 mkdir -p "$OUT/screenshots"
+core() {
 git rev-parse HEAD > "$OUT/commit.txt"
 xcodebuild -version > "$OUT/toolchain.txt"
 python3 -m unittest discover -s scripts/tests -p 'test_personal_feed_*.py' -v 2>&1 | tee "$OUT/architecture-tests.log"
 swift test --package-path PersonalClient/Core 2>&1 | tee "$OUT/core-tests.log"
 swift test --package-path PersonalClient/Core -c release -Xswiftc -Osize 2>&1 | tee "$OUT/core-release-tests.log"
+}
+simulator() {
 xcodegen generate --spec PersonalClient/project.yml --project PersonalClient
 xcodebuild -project PersonalClient/PersonalFeed.xcodeproj -scheme PersonalFeed -configuration Debug \
   -destination 'generic/platform=iOS Simulator' -derivedDataPath "$OUT/DerivedData" \
-  -resultBundlePath "$OUT/BuildForTesting.xcresult" CODE_SIGNING_ALLOWED=NO build-for-testing 2>&1 | tee "$OUT/simulator-build.log"
+  -resultBundlePath "$OUT/BuildForTesting.xcresult" CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- \
+  CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=398XACWZ7G build-for-testing 2>&1 | tee "$OUT/simulator-build.log"
+SIM_APP="$OUT/DerivedData/Build/Products/Debug-iphonesimulator/PersonalFeed.app"
+codesign --verify --deep --strict "$SIM_APP"
+codesign -d --entitlements :- "$SIM_APP" > "$OUT/simulator-entitlements.plist" 2> "$OUT/simulator-signature.log"
+python3 - "$OUT/simulator-entitlements.plist" <<'PY'
+import plistlib,sys
+p=plistlib.load(open(sys.argv[1],'rb'))
+identity=p.get('application-identifier') or p.get('com.apple.application-identifier')
+if identity != '398XACWZ7G.org.worldexe.personalfeed':
+    raise SystemExit('Simulator application identity missing; real Keychain tests require normal local signing')
+if p.get('com.apple.security.application-groups'):
+    raise SystemExit('Unexpected shared app group in personal-client simulator')
+print('Simulator ad-hoc application identity verified; no Apple private signing key used.')
+PY
+}
+ui() {
 xcrun simctl list devices available --json > "$OUT/simulators.json"
 export FEED_OUT="$OUT"
 SIM_ID=$(python3 - <<'PY'
@@ -34,12 +53,21 @@ PY
 )
 xcrun simctl boot "$SIM_ID" 2>/dev/null || true
 xcrun simctl bootstatus "$SIM_ID" -b
+set +e
 xcodebuild -project PersonalClient/PersonalFeed.xcodeproj -scheme PersonalFeed -configuration Debug \
   -destination "platform=iOS Simulator,id=$SIM_ID" -derivedDataPath "$OUT/DerivedData" \
   -resultBundlePath "$OUT/TestResults.xcresult" -parallel-testing-enabled NO \
   -test-timeouts-enabled YES -default-test-execution-time-allowance 180 \
-  -maximum-test-execution-time-allowance 240 CODE_SIGNING_ALLOWED=NO test-without-building 2>&1 | tee "$OUT/ios-tests.log"
-xcrun xcresulttool export attachments --path "$OUT/TestResults.xcresult" --output-path "$OUT/screenshots/test-attachments"
+  -maximum-test-execution-time-allowance 240 CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- \
+  CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=398XACWZ7G test-without-building 2>&1 | tee "$OUT/ios-tests.log"
+test_status=${PIPESTATUS[0]}
+set -e
+if [ -d "$OUT/TestResults.xcresult" ]; then
+  xcrun xcresulttool export attachments --path "$OUT/TestResults.xcresult" --output-path "$OUT/screenshots/test-attachments" || true
+fi
+[ "$test_status" -eq 0 ] || return "$test_status"
+}
+device() {
 xcodebuild -project PersonalClient/PersonalFeed.xcodeproj -scheme PersonalFeed -configuration Release \
   -destination 'generic/platform=iOS' -derivedDataPath "$OUT/DeviceData" \
   CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY='' build 2>&1 | tee "$OUT/device-build.log"
@@ -59,3 +87,12 @@ Native Hornet export schema: NOT verified; only explicitly mapped CSV/JSON suppo
 Physical-device biometric protection / networking: NOT verified by simulator.
 TestFlight: NOT published by this workflow. Device artifact is unsigned.
 RECEIPT
+}
+case "${1:-all}" in
+  core) core ;;
+  simulator) simulator ;;
+  ui) ui ;;
+  device) device ;;
+  all) core; simulator; ui; device ;;
+  *) echo 'Expected core, simulator, ui, device or all'; exit 2 ;;
+esac

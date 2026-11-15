@@ -24,6 +24,21 @@ final class PersonalFeedTests: XCTestCase {
         let props = try root.resourceValues(forKeys: [.isExcludedFromBackupKey])
         XCTAssertEqual(props.isExcludedFromBackup, true)
     }
+    func testRealKeychainRoundTripUsesDistinctTestService() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let id = UUID(), original = try fixture()
+        let disk = PrivateVault(root: root, keychainTestID: id)
+        do {
+            try await disk.save(original)
+            let reopened = PrivateVault(root: root, keychainTestID: id)
+            let restored = try await reopened.load()
+            XCTAssertEqual(restored, original)
+            try await disk.erase()
+        } catch {
+            try? await disk.erase()
+            throw error
+        }
+    }
     func testWrongKeyAndCorruptVaultFailWithoutOverwrite() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
@@ -55,6 +70,14 @@ final class PersonalFeedTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: root.path))
         session.lock(); XCTAssertFalse(session.isOpen); XCTAssertTrue(session.value.items.isEmpty)
     }
+    @MainActor func testFailedNoteCannotClaimSuccessOrChangeVault() async throws {
+        let session = FeedSession(); session.startDemo()
+        let item = try XCTUnwrap(session.value.items.first)
+        let before = session.value
+        let accepted = await session.addNote(String(repeating: "x", count: 8_193), item: item)
+        XCTAssertFalse(accepted); XCTAssertEqual(session.value, before)
+        XCTAssertFalse(session.message.isEmpty)
+    }
     @MainActor func testDemoCannotCreateRealHornetSource() async {
         let session = FeedSession(); session.startDemo()
         await session.addSource(.init(provider: .hornet, label: "x", acquisition: .userMappedFile))
@@ -68,6 +91,19 @@ final class PersonalFeedTests: XCTestCase {
         XCTAssertEqual(try ExchangeDocument.decode(data, source: source).count, 1)
         XCTAssertNil(MockFeedProtocol.request?.value(forHTTPHeaderField: "Authorization"))
         XCTAssertNil(MockFeedProtocol.request?.httpBody)
+    }
+    func testTransportDoesNotReuseCompletedConsent() async throws {
+        MockFeedProtocol.configure(status: 200, mime: "application/json", data: Data("{}".utf8))
+        let client = FeedTransport(testProtocol: MockFeedProtocol.self)
+        let url = URL(string: "https://feed-test.invalid/feed.json")!
+        _ = try await client.get(url)
+        do { _ = try await client.get(url); XCTFail("Transport silently reused") } catch {}
+    }
+    func testCancelBeforeStartDoesNotSendRequest() async {
+        MockFeedProtocol.configure(status: 200, mime: "application/json", data: Data("{}".utf8))
+        let client = FeedTransport(testProtocol: MockFeedProtocol.self); client.cancel()
+        do { _ = try await client.get(URL(string: "https://feed-test.invalid/feed.json")!); XCTFail("Cancelled operation started") } catch {}
+        XCTAssertNil(MockFeedProtocol.request)
     }
     func testHTTPErrorNotImported() async {
         MockFeedProtocol.configure(status: 403, mime: "application/json", data: Data("{}".utf8))

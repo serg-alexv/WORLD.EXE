@@ -55,16 +55,18 @@ import FeedStore
         epoch = UUID(); auth?.invalidate(); auth = nil; transport?.cancel(); transport = nil
         operation?.cancel(); operation = nil; value = FeedVault(); mode = .locked; busy = false; message = ""; loadFailed = false
     }
-    private func commit(_ candidate: FeedVault, success: String) async {
-        guard isOpen, !busy, !loadFailed else { return }
+    @discardableResult private func commit(_ candidate: FeedVault, success: String) async -> Bool {
+        guard isOpen, !busy, !loadFailed else { return false }
         busy = true; let token = epoch, privateMode = mode == .personal
         do {
             if privateMode { try await disk.save(candidate) }
-            guard token == epoch else { return }
+            guard token == epoch else { return false }
             value = candidate; message = success; busy = false
+            return true
         } catch {
-            guard token == epoch else { return }
-            message = "Не удалось сохранить. Изменение не применено."; busy = false
+            guard token == epoch else { return false }
+            message = (error as? PrivateVault.VaultFailure)?.errorDescription ?? "Не удалось сохранить. Изменение не применено."; busy = false
+            return false
         }
     }
     func addSource(_ source: FeedSource) async {
@@ -79,12 +81,12 @@ import FeedStore
             await commit(next, success: "Добавлено: \(receipt.inserted), обновлено: \(receipt.updated), без изменений: \(receipt.unchanged). Снято устаревших аннотаций: \(receipt.invalidatedAnnotations).")
         } catch { show(error) }
     }
-    func addNote(_ text: String, item: FeedItem) async {
+    @discardableResult func addNote(_ text: String, item: FeedItem) async -> Bool {
         do {
             var next = value
             try next.annotate(.init(kind: .personalNote, text: text, references: [.init(item)]))
-            await commit(next, success: "Заметка сохранена отдельно от исходной записи.")
-        } catch { show(error) }
+            return await commit(next, success: "Заметка сохранена отдельно от исходной записи.")
+        } catch { show(error); return false }
     }
     func deleteSource(_ id: UUID) async {
         var next = value; next.deleteSource(id)

@@ -4,7 +4,7 @@ import FeedAdapters
 
 /// Explicit user-triggered HTTPS only. No cookies, tokens, redirects, background polling or body logging.
 final class FeedTransport: NSObject, URLSessionDataDelegate, @unchecked Sendable {
-    enum Failure: Error { case redirect, http, tooLarge, cancelled }
+    enum Failure: Error { case redirect, http, tooLarge, cancelled, alreadyUsed }
     private let testProtocol: URLProtocol.Type?
     init(testProtocol: URLProtocol.Type? = nil) { self.testProtocol = testProtocol; super.init() }
     private var bytes = Data()
@@ -12,12 +12,15 @@ final class FeedTransport: NSObject, URLSessionDataDelegate, @unchecked Sendable
     private var session: URLSession?
     private let lock = NSLock()
     private var cancelled = false
+    private var started = false
     func get(_ url: URL) async throws -> Data {
         _ = try EndpointPolicy.validate(url.absoluteString)
         return try await withTaskCancellationHandler(operation: {
             try await withCheckedThrowingContinuation { continuation in
                 lock.lock()
                 if cancelled { lock.unlock(); continuation.resume(throwing: CancellationError()); return }
+                if started { lock.unlock(); continuation.resume(throwing: Failure.alreadyUsed); return }
+                started = true
                 self.continuation = continuation
                 lock.unlock()
                 let config = URLSessionConfiguration.ephemeral
