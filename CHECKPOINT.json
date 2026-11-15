@@ -1,0 +1,14 @@
+{
+  "excludes": [
+    "credentials",
+    "model weights",
+    "binaries",
+    "build output",
+    "private ops files"
+  ],
+  "format": 1,
+  "source_branch": "fix/contact-release-identity",
+  "source_head": "903371772ae209e1b14adbb91fc6b33fb89e4aea",
+  "status": "source recovery snapshot, not a validated build",
+  "workspace": "contact-release"
+}
