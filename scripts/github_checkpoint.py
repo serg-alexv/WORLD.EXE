@@ -45,6 +45,16 @@ def allowed(name: str, tracked: bool) -> bool:
         return False
     if any(p.lower().startswith('.env') for p in path.parts):
         return False
+    # Personal-client backups are code-only, never arbitrary exports or account data.
+    if path.parts and path.parts[0] == 'PersonalClient':
+        if any(p.lower() in {'imports','exports','privatedata','generated','fixtures','recordings'} for p in path.parts):
+            return False
+        if name in {'PersonalClient/.gitignore','PersonalClient/project.yml','PersonalClient/Core/Package.swift',
+                    'PersonalClient/App/PrivacyInfo.xcprivacy'}:
+            return True
+        source_roots = ('PersonalClient/App/', 'PersonalClient/AppTests/', 'PersonalClient/UITests/',
+                        'PersonalClient/Core/Sources/', 'PersonalClient/Core/Tests/')
+        return path.suffix == '.swift' and name.startswith(source_roots)
     if name in ROOT_FILES:
         return True
     if not path.parts or path.parts[0] not in ROOT_DIRS:
