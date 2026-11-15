@@ -10,12 +10,13 @@ struct TrainingScene: UIViewRepresentable {
         let view = SCNView(frame: .zero)
         view.backgroundColor = UIColor(red: 0.025, green: 0.045, blue: 0.075, alpha: 1)
         view.antialiasingMode = .multisampling4X
-        view.preferredFramesPerSecond = 30
+        view.preferredFramesPerSecond = SpatialPerformanceBudget.targetFPS
         context.coordinator.build(view)
         view.addGestureRecognizer(UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.tap(_:))))
         return view
     }
     func updateUIView(_ view: SCNView, context: Context) {
+        view.preferredFramesPerSecond = SpatialPerformanceBudget.targetFPS
         context.coordinator.update(zoom: zoom)
     }
     static func dismantleUIView(_ view: SCNView, coordinator: Coordinator) {

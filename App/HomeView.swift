@@ -38,6 +38,7 @@ struct HomeView: View {
 struct TrainingScreen: View {
     @ObservedObject var game: GameStore
     @State private var zoom = 1.0
+    @StateObject private var tactical = TacticalNarrator()
     var body: some View {
         VStack(spacing: 9) {
             HStack {
@@ -68,6 +69,23 @@ struct TrainingScreen: View {
                 Button("Reset camera") { zoom = 1 }.font(.caption).accessibilityIdentifier("resetCamera")
             }.font(.caption).foregroundStyle(.secondary)
             VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Button("Tactical Advisor") {
+                        Task { await tactical.advise(mission: game.mission) }
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(tactical.isThinking || game.moving)
+                    .accessibilityIdentifier("tacticalAdvisor")
+                    Spacer()
+                    Text(tactical.source)
+                        .font(.system(size: 9, design: .monospaced))
+                        .foregroundStyle(Palette.amber)
+                }
+                if !tactical.briefing.isEmpty {
+                    Text(tactical.briefing)
+                        .font(.caption)
+                        .accessibilityIdentifier("tacticalBriefing")
+                }
                 Text(game.message).font(.caption).frame(maxWidth: .infinity, alignment: .leading)
                     .frame(minHeight: 32).accessibilityIdentifier("missionMessage")
                 HStack {
