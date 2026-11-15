@@ -9,6 +9,9 @@ final class SignalSiegeStore: ObservableObject {
     @Published private(set) var leaderboard = SiegeLeaderboard()
     @Published private(set) var message = "Reach the relay, secure its signal, then return to extraction."
     @Published private(set) var rankingStatus = "Victories only · top 10 on this device"
+    @Published private(set) var voiceEvent: SiegeVoiceEvent = .deployment
+    @Published private(set) var voiceVariant: UInt64 = 0
+    @Published private(set) var rankingVoice: SiegeVoiceEvent = .rankingEmpty
     private var rankingsNeedReset = false
     private var clearedSession: UUID?
     private let defaults: UserDefaults?
@@ -34,6 +37,8 @@ final class SignalSiegeStore: ObservableObject {
                 let restored = try JSONDecoder().decode(SignalSiege.self, from: data)
                 guard restored.isValid else { throw CocoaError(.coderReadCorrupt) }
                 mission = restored
+                voiceEvent = restored.phase == .victory ? .victory : restored.phase == .defeat ? .defeat : .deployment
+                voiceVariant = UInt64(restored.commandHistory.count)
                 message = "Local Signal Siege session restored."
                 recordVictory()
             } catch { message = "Saved challenge rejected. A fresh, deterministic board is ready." }
@@ -42,19 +47,24 @@ final class SignalSiegeStore: ObservableObject {
 
     func perform(_ command: SiegeCommand) {
         do {
+            let before = mission
             try mission.apply(command)
+            voiceEvent = SiegeVoice.event(before: before, after: mission, command: command)
+            voiceVariant = UInt64(mission.commandHistory.count)
             message = mission.outcomeMessage
             evidence?.recordGame(mission: mission.sessionID, kind: .trainingCommand, action: actionName(command))
             saveMission()
             recordVictory()
         } catch {
             message = error.localizedDescription
+            voiceEvent = .rejected
             evidence?.recordGame(mission: mission.sessionID, kind: .rejectedCommand, action: actionName(command))
         }
     }
 
     func replay(seed: UInt64, difficulty: SiegeDifficulty) {
         mission = SignalSiege(seed: seed, difficulty: difficulty)
+        voiceEvent = .replay; voiceVariant = 0
         message = "Fresh session. Same seed and difficulty give the same tactical rules."
         evidence?.recordGame(mission: mission.sessionID, kind: .replay, action: "signal-siege.replay")
         saveMission()
@@ -71,6 +81,7 @@ final class SignalSiegeStore: ObservableObject {
             defaults?.set(data, forKey: scoresKey)
             leaderboard = next
             rankingsNeedReset = false
+            rankingVoice = .rankingCleared
             rankingStatus = "Local rankings cleared. Replay to earn a new entry."
             evidence?.recordGame(mission: mission.sessionID, kind: .reset, action: "signal-siege.rankings-clear")
         } catch { rankingStatus = "Could not encode local rankings." }
@@ -88,6 +99,7 @@ final class SignalSiegeStore: ObservableObject {
             guard try next.record(mission) else { return }
             let data = try next.encoded()
             leaderboard = next
+            rankingVoice = .rankingSaved
             defaults?.set(data, forKey: scoresKey)
             rankingStatus = "Victory recorded on this device · seed and difficulty kept separate"
         } catch { rankingStatus = "Victory complete; rankings unavailable. Clear local rankings to reset the archive." }

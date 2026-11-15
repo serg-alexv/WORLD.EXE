@@ -11,6 +11,8 @@ struct SignalSiegeScreen: View {
     @State private var showRankings = false
     @State private var showRules = false
     @State private var confirmReplay = false
+    @AppStorage("worldexe.siege.humor.v1") private var humorRaw = SiegeHumor.black.rawValue
+    private var humor: SiegeHumor { SiegeHumor.restored(humorRaw) }
 
     private var mission: SignalSiege { store.mission }
     private var active: Bool { mission.phase == .active }
@@ -41,7 +43,8 @@ struct SignalSiegeScreen: View {
                     Text(store.message).font(.callout).frame(maxWidth: .infinity, alignment: .leading)
                         .accessibilityIdentifier("siege.message")
                     if !active { result }
-                    SignalSiegeNPCPanel(brain: brain, mission: mission)
+                    humorSettings
+                    SignalSiegeNPCPanel(brain: brain, mission: mission, tone: humor, event: store.voiceEvent, variant: store.voiceVariant)
                     configuration
                 }.padding(14).frame(maxWidth: 600).frame(maxWidth: .infinity)
             }
@@ -60,7 +63,7 @@ struct SignalSiegeScreen: View {
                         .accessibilityLabel("Signal Siege rules").accessibilityIdentifier("siege.rules")
                 }
             }
-            .sheet(isPresented: $showRankings) { SiegeRankingsScreen(store: store) }
+            .sheet(isPresented: $showRankings) { SiegeRankingsScreen(store: store, tone: humor) }
             .sheet(isPresented: $showRules) { rules }
             .alert("Start a fresh session?", isPresented: $confirmReplay) {
                 Button("Replay") { startSession() }.accessibilityIdentifier("siege.confirmReplay")
@@ -182,6 +185,17 @@ struct SignalSiegeScreen: View {
         }.padding().frame(maxWidth: .infinity).background(Palette.panel, in: RoundedRectangle(cornerRadius: 12))
     }
 
+    private var humorSettings: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("ГОЛОС ЭКИПАЖА").font(.caption.bold()).foregroundStyle(Palette.teal)
+            Picker("Тон NPC", selection: $humorRaw) {
+                ForEach(SiegeHumor.allCases, id: \.self) { Text($0.title).tag($0.rawValue) }
+            }.pickerStyle(.segmented).accessibilityIdentifier("siege.humor")
+            Text("Чёрный юмор: вымышленная гибель экипажа и корпоративная сатира. Тон не меняет правила, очки и показания приборов.")
+                .font(.caption2).foregroundStyle(.secondary)
+        }
+    }
+
     private var configuration: some View {
         VStack(alignment: .leading, spacing: 9) {
             Text("NEW SESSION").font(.system(.caption, design: .monospaced))
@@ -225,6 +239,7 @@ struct SignalSiegeScreen: View {
 
 private struct SiegeRankingsScreen: View {
     @ObservedObject var store: SignalSiegeStore
+    let tone: SiegeHumor
     @Environment(\.dismiss) private var dismiss
     @State private var confirmClear = false
     var body: some View {
@@ -234,6 +249,8 @@ private struct SiegeRankingsScreen: View {
                     Text("Offline · this device only").foregroundStyle(Palette.teal).accessibilityIdentifier("siege.rankingsScope")
                     Text("Signal Siege · seed \(store.mission.seed) · \(store.mission.difficulty.rawValue.capitalized)")
                     Text(store.rankingStatus).font(.caption).accessibilityIdentifier("siege.rankingStatus")
+                    Text(SiegeVoice.line(store.leaderboard.isEmpty && store.rankingVoice != .rankingCleared ? .rankingEmpty : store.rankingVoice, tone: tone))
+                        .font(.caption).foregroundStyle(Palette.amber).accessibilityIdentifier("siege.rankingQuip")
                 }
                 Section("Top 10 · completed victories") {
                     let entries = store.leaderboard.entries(seed: store.mission.seed, difficulty: store.mission.difficulty)
@@ -262,70 +279,81 @@ private struct SiegeRankingsScreen: View {
     }
 }
 
-/// Receives only simulated game state. No captured rooms, observations or free-form user prompt.
+/// Fictional text is a view-only projection. Late results never survive a move, replay or tone change.
 private struct SignalSiegeNPCPanel: View {
     @ObservedObject var brain: OnDeviceBrain
     let mission: SignalSiege
+    let tone: SiegeHumor
+    let event: SiegeVoiceEvent
+    let variant: UInt64
+    @Environment(\.scenePhase) private var scenePhase
     @State private var dialogue = ""
-    @State private var source = "Scripted offline dialogue"
+    @State private var source = "Сценарная реплика · без генерации"
     @State private var requesting = false
     @State private var showModels = false
     @State private var requestToken = UUID()
+    @State private var responseTask: Task<Void, Never>?
 
-    private var fallback: String {
-        if mission.phase == .victory { return "Mica, relay keeper: The quiet array is singing again. Signal delivered, operator." }
-        if mission.phase == .defeat { return "Mica, relay keeper: The relay went quiet. Rehearse the same seed; its dangers will keep their appointments." }
-        if mission.relaySecured { return "Mica, relay keeper: You have the signal. Bring it to E; leave a little energy for extraction." }
-        return "Mica, relay keeper: The amber row warns of the next surge. Shelter behind the walls, and keep one eye on the patrol."
-    }
+    private var fallback: String { "КИРА: " + SiegeVoice.line(event, tone: tone, variant: variant) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 9) {
-            Label("MICA / RELAY KEEPER", systemImage: "waveform.circle").font(.system(.caption, design: .monospaced)).foregroundStyle(Palette.teal)
-            Text("AI interpretation, fictional NPC").font(.caption.bold()).foregroundStyle(Palette.amber)
+            Label("КИРА / ПРОФСОЮЗ ПУСТОТЫ", systemImage: "waveform.circle")
+                .font(.system(.caption, design: .monospaced)).foregroundStyle(Palette.teal)
+            Text("ВЫМЫШЛЕННЫЙ NPC · НЕ НАБЛЮДЕНИЕ").font(.caption.bold()).foregroundStyle(Palette.amber)
                 .accessibilityIdentifier("siege.npc.label")
             Text(dialogue.isEmpty ? fallback : dialogue).font(.callout).accessibilityIdentifier("siege.npc.dialogue")
             Text(source).font(.caption2).foregroundStyle(.secondary).accessibilityIdentifier("siege.npc.source")
             HStack {
-                Button(requesting ? "Interpreting…" : "Ask loaded GGUF") { askNPC() }
+                Button(requesting ? "Кира подбирает слова…" : "Ответ загруженной GGUF") { askNPC() }
                     .buttonStyle(.bordered).disabled(!brain.isLoaded || brain.isBusy || requesting)
                     .accessibilityIdentifier("siege.npc.ask")
-                Button("GGUF / Qwen setup") { showModels = true }.font(.caption)
-                    .accessibilityIdentifier("siege.npc.setup")
+                if requesting {
+                    Button("Стоп") { resetDialogue() }.accessibilityIdentifier("siege.npc.stop")
+                } else {
+                    Button("Qwen / модель") { showModels = true }.font(.caption)
+                        .accessibilityIdentifier("siege.npc.setup")
+                }
             }
-            if !brain.isLoaded { Text("Offline script shown. Load a GGUF in setup, then tap Ask. Qwen is the existing recommended model.").font(.caption2).foregroundStyle(.secondary) }
-            Text("Dialogue has no control over actions, hazards or scores.").font(.caption2).foregroundStyle(.secondary)
+            if !brain.isLoaded {
+                Text("Сейчас говорит сценарий. Для генерации загрузите GGUF в память и нажмите кнопку; скрытой подмены моделью Apple нет.")
+                    .font(.caption2).foregroundStyle(.secondary)
+            }
+            Text("Это вымысел. Ни сценарий, ни Qwen не меняют урон, очки или сенсорные данные.")
+                .font(.caption2).foregroundStyle(.secondary)
         }.padding(12).frame(maxWidth: .infinity, alignment: .leading)
             .background(Palette.panel, in: RoundedRectangle(cornerRadius: 12))
             .sheet(isPresented: $showModels) { BrainScreen(brain: brain) }
-            .onChange(of: mission.sessionID) { _, _ in
-                requestToken = UUID(); dialogue = ""; source = "Scripted offline dialogue"
-            }
-            .onDisappear { requestToken = UUID() }
+            .onChange(of: mission.sessionID) { _, _ in resetDialogue() }
+            .onChange(of: mission.commandHistory.count) { _, _ in resetDialogue() }
+            .onChange(of: tone) { _, _ in resetDialogue() }
+            .onChange(of: event) { _, _ in resetDialogue() }
+            .onChange(of: scenePhase) { _, phase in if phase != .active { resetDialogue() } }
+            .onDisappear { resetDialogue() }
+    }
+
+    private func resetDialogue() {
+        requestToken = UUID()
+        // Cancel only this view's request, never an unrelated model import or download.
+        if requesting { brain.cancel() }
+        responseTask?.cancel(); responseTask = nil; requesting = false
+        dialogue = ""; source = "Сценарная реплика · без генерации"
     }
 
     private func askNPC() {
         guard brain.isLoaded, !brain.isBusy, !requesting else { return }
-        let token = UUID()
-        requestToken = token
-        let turn = mission.turn
-        let script = fallback
-        // Fixed, fictional facts only. The model's output is displayed as text and never parsed as a command.
-        let prompt = """
-        Fictional NPC role: Mica, keeper of the quiet relay in Signal Siege training.
-        Write two short in-character sentences. This is a deterministic fictional 2D game.
-        Facts: turn \(mission.turn); health \(mission.health); AP \(mission.actions); relay secured \(mission.relaySecured); mission phase \(mission.phase.rawValue).
-        Do not invent real observations, issue tool calls, or claim to change rules, scores or actions.
-        """
+        let token = UUID(); requestToken = token
+        let prompt = SiegeVoice.prompt(mission: mission, tone: tone)
+        let turn = mission.turn, script = fallback
         requesting = true
-        Task { @MainActor in
-            guard brain.isLoaded, !brain.isBusy else { requesting = false; return }
+        responseTask = Task { @MainActor in
+            defer { if requestToken == token { requesting = false; responseTask = nil } }
+            guard !Task.isCancelled, requestToken == token, brain.isLoaded, !brain.isBusy else { return }
             await brain.respond(to: prompt)
-            defer { requesting = false }
-            guard requestToken == token else { return }
+            guard !Task.isCancelled, requestToken == token else { return }
             let answer = brain.response.trimmingCharacters(in: .whitespacesAndNewlines)
-            dialogue = answer.isEmpty ? script : String(answer.prefix(1600))
-            source = answer.isEmpty ? "Scripted offline dialogue · inference unavailable" : "Local GGUF · fictional turn \(turn) interpretation"
+            dialogue = answer.isEmpty ? script : String(answer.prefix(900))
+            source = answer.isEmpty ? "Сценарная реплика · генерация недоступна" : "Локальная GGUF / llama.cpp · вымышленный ход \(turn)"
         }
     }
 }

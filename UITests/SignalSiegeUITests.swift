@@ -34,7 +34,7 @@ final class SignalSiegeUITests: XCTestCase {
         reveal(app.buttons["siege.replay"], in: app)
         app.buttons["siege.replay"].tap()
         app.alerts.buttons["Replay"].tap()
-        app.swipeDown()
+        for _ in 0..<7 { if app.staticTexts["siege.status"].isHittable { break }; app.swipeDown() }
         XCTAssertTrue(app.staticTexts["siege.status"].label.contains("TURN 1"))
         app.buttons["siege.close"].tap()
         XCTAssertTrue(app.buttons["beginMission"].waitForExistence(timeout: 5))
@@ -43,11 +43,11 @@ final class SignalSiegeUITests: XCTestCase {
     func testOfflineNPCAndLocalRankingsClear() {
         let app = openChallenge()
         reveal(app.staticTexts["siege.npc.label"], in: app)
-        XCTAssertEqual(app.staticTexts["siege.npc.label"].label, "AI interpretation, fictional NPC")
-        XCTAssertEqual(app.staticTexts["siege.npc.source"].label, "Scripted offline dialogue")
+        XCTAssertEqual(app.staticTexts["siege.npc.label"].label, "ВЫМЫШЛЕННЫЙ NPC · НЕ НАБЛЮДЕНИЕ")
+        XCTAssertEqual(app.staticTexts["siege.npc.source"].label, "Сценарная реплика · без генерации")
         reveal(app.buttons["siege.npc.ask"], in: app)
         XCTAssertFalse(app.buttons["siege.npc.ask"].isEnabled, "No GGUF inference occurs before explicit model loading")
-        XCTAssertTrue(app.staticTexts["siege.npc.dialogue"].label.contains("Mica"))
+        XCTAssertTrue(app.staticTexts["siege.npc.dialogue"].label.contains("КИРА"))
         app.buttons["siege.rankings"].tap()
         XCTAssertTrue(app.staticTexts["siege.rankingsScope"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["siege.noScores"].exists)
