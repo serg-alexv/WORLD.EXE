@@ -1,0 +1,14 @@
+{
+  "excludes": [
+    "credentials",
+    "model weights",
+    "binaries",
+    "build output",
+    "private ops files"
+  ],
+  "format": 1,
+  "source_branch": "feature/evidence-boundaries",
+  "source_head": "f0496996d9721ba5761a5f98dab71551a378be1f",
+  "status": "source recovery snapshot, not a validated build",
+  "workspace": "evidence"
+}
