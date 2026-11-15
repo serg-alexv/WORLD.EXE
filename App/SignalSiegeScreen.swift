@@ -293,7 +293,10 @@ private struct SignalSiegeNPCPanel: View {
                 Button("GGUF / Qwen setup") { showModels = true }.font(.caption)
                     .accessibilityIdentifier("siege.npc.setup")
             }
-            if !brain.isLoaded { Text("Offline script shown. Load a GGUF in setup, then tap Ask. Qwen is the existing recommended model.").font(.caption2).foregroundStyle(.secondary) }
+            if !brain.isLoaded {
+                Text(dialogue.isEmpty ? "Offline script shown. Load a GGUF in setup, then tap Ask. Qwen is the existing recommended model." : "GGUF is unloaded. Load a model and tap Ask for a fresh interpretation.")
+                    .font(.caption2).foregroundStyle(.secondary)
+            }
             Text("Dialogue has no control over actions, hazards or scores.").font(.caption2).foregroundStyle(.secondary)
         }.padding(12).frame(maxWidth: .infinity, alignment: .leading)
             .background(Palette.panel, in: RoundedRectangle(cornerRadius: 12))
