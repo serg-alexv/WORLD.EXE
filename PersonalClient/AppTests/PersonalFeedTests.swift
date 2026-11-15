@@ -55,6 +55,14 @@ final class PersonalFeedTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: root.path))
         session.lock(); XCTAssertFalse(session.isOpen); XCTAssertTrue(session.value.items.isEmpty)
     }
+    @MainActor func testFailedNoteCannotClaimSuccessOrChangeVault() async throws {
+        let session = FeedSession(); session.startDemo()
+        let item = try XCTUnwrap(session.value.items.first)
+        let before = session.value
+        let accepted = await session.addNote(String(repeating: "x", count: 8_193), item: item)
+        XCTAssertFalse(accepted); XCTAssertEqual(session.value, before)
+        XCTAssertFalse(session.message.isEmpty)
+    }
     @MainActor func testDemoCannotCreateRealHornetSource() async {
         let session = FeedSession(); session.startDemo()
         await session.addSource(.init(provider: .hornet, label: "x", acquisition: .userMappedFile))
