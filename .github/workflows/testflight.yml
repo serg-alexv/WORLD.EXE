@@ -19,7 +19,7 @@ jobs:
   sign-and-export:
     needs: validate
     runs-on: macos-15
-    timeout-minutes: 30
+    timeout-minutes: 45
     environment: testflight
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -27,6 +27,11 @@ jobs:
         with:
           xcode-version: '26.3'
       - run: brew install xcodegen
+      - name: Restore validated native framework
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          key: llama-b12398-xcode26.3-sim-v1-${{ hashFiles('scripts/prepare_llama.sh') }}
+          path: LocalLlama/Frameworks
       - name: Sign, verify, export, optionally upload
         run: bash scripts/release.sh
         env:

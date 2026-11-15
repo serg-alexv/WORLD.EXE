@@ -1,4 +1,25 @@
-# WORLD.EXE — The Hollow Orbit
+# WORLD.EXE — CONTACT testbed
+
+**0.2.0 source milestone:** paired researcher/operator mission and actual local GGUF inference.
+See [CONTACT_TESTBED](docs/CONTACT_TESTBED.md) for the agreed gameplay, room/AR coordinate contract, pairing, model setup and hardware acceptance.
+
+On one phone: **КОНТАКТ · вдвоём → Демонстрация / один экран**. Switch roles to inspect three symbols, power/tune nodes, stabilize them and extract the capsule. This is clearly marked simulation.
+
+On two phones: researcher makes a fresh Room scan, explicitly consents to geometry sharing and hosts a local pair; operator joins using the displayed code and researcher confirmation. Both continue, then researcher places the capsule in AR on a safe horizontal surface. Only the researcher needs LiDAR. Archived room JSON is not treated as a live AR map.
+
+**GGUF · интеллект:** import a trusted full GGUF or explicitly download the pinned Qwen3 0.6B Q8_0 (~640 MB, Wi-Fi), load it into memory and request a local reply. Stop, unload and delete are separate controls. There is no cloud inference fallback. In-game model advice cannot execute a game command. Default model is optional; weights are never in git or the IPA.
+
+## Build
+macOS/Xcode 26.3 + XcodeGen + CMake:
+```sh
+bash scripts/prepare_llama.sh
+bash scripts/build_and_test.sh
+```
+`bash scripts/llama_smoke.sh` downloads the pinned model for a real native-bridge inference/cancellation/unload test with network denied during execution. Models are excluded from CI artifacts. Existing training/compact core tests remain enabled.
+
+Release status is established by the GitHub release receipt and App Store Connect, not by this source milestone description. Physical paired networking, AR alignment/occlusion and iPhone Metal performance must be tested on actual devices.
+
+## Existing training and sensors
 
 A native iOS 18+ exploration prototype: original procedural 3D graphics, a complete tactical training mission, and separate real spatial-sensing modes. Built with SwiftUI, SceneKit, ARKit and RoomPlan. Bundle identifier: `org.worldexe.prototype`; Xcode scheme: `WorldEXE`.
 

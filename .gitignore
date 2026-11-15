@@ -10,3 +10,8 @@ xcuserdata/
 *.p12
 *.mobileprovision
 .DS_Store
+LocalLlama/Frameworks/
+**/.swiftpm/
+*.gguf
+*.safetensors
+App/Info.plist

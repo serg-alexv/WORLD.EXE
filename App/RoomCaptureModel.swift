@@ -2,6 +2,7 @@ import Foundation
 import Combine
 import OSLog
 import RoomPlan
+import ARKit
 import simd
 
 struct RoomSnapshot: Codable {
@@ -49,6 +50,9 @@ final class RoomCaptureModel: NSObject, ObservableObject {
     @Published private(set) var scanning = false
     @Published private(set) var processing = false
     @Published private(set) var snapshot: RoomSnapshot?
+    // Only a successful capture from THIS launch provides a spatially aligned AR handoff.
+    @Published private(set) var contactSession: ARSession?
+    @Published private(set) var contactGeneration: UUID?
     @Published private(set) var exportURLs: [URL] = []
     @Published var status = "Stopped. Start a room capture or view the saved archive."
     private var activeArchive: RoomArchiveRecord?
@@ -91,6 +95,7 @@ final class RoomCaptureModel: NSObject, ObservableObject {
     func start() {
         dispatchPrecondition(condition: .onQueue(.main))
         guard RoomCaptureSession.isSupported, !scanning, !processing else { return }
+        contactSession?.pause(); contactSession = nil; contactGeneration = nil
         releaseCaptureView()
         let view = RoomCaptureView(frame: .zero)
         let relay = RoomCaptureRelay(owner: self, token: captureToken)
@@ -109,6 +114,7 @@ final class RoomCaptureModel: NSObject, ObservableObject {
     }
     func reset() {
         dispatchPrecondition(condition: .onQueue(.main))
+        contactSession?.pause(); contactSession = nil; contactGeneration = nil
         releaseCaptureView(); scanning = false; processing = false
         activeArchive = nil; snapshot = nil; exportURLs = []
         do {
@@ -144,8 +150,12 @@ final class RoomCaptureModel: NSObject, ObservableObject {
             status = "No usable room or too many elements (limit 512). The last archive is retained."
             releaseCaptureView(); return
         }
+        let preservedSession = captureView?.captureSession.arSession
         releaseCaptureView()
-        persist(result, snapshot: nextSnapshot)
+        if persist(result, snapshot: nextSnapshot) {
+            contactSession = preservedSession
+            contactGeneration = preservedSession == nil ? nil : UUID()
+        }
     }
     private func fail(_ error: Error) {
         scanning = false; processing = false
@@ -153,7 +163,7 @@ final class RoomCaptureModel: NSObject, ObservableObject {
         releaseCaptureView()
         expeditionLog.error("Room capture failed: \(error.localizedDescription, privacy: .public)")
     }
-    private func persist(_ room: CapturedRoom, snapshot nextSnapshot: RoomSnapshot) {
+    private func persist(_ room: CapturedRoom, snapshot nextSnapshot: RoomSnapshot) -> Bool {
         let record = RoomArchiveRecord(version: 1, id: UUID(), processedAt: Date(), source: "Apple RoomPlan", units: "m")
         let folder = archiveDirectory(record.id)
         var committed = false
@@ -177,9 +187,11 @@ final class RoomCaptureModel: NSObject, ObservableObject {
             status = "Room processed and saved locally. Isometric view, metadata, JSON and USDZ are ready."
             removeOrphans(keeping: record.id)
             expeditionLog.info("Room archive saved: \(nextSnapshot.elements.count) elements")
+            return true
         } catch {
             status = "New room could not be saved: \(error.localizedDescription). The previous complete archive is retained."
             expeditionLog.error("Room export failed: \(error.localizedDescription, privacy: .public)")
+            return false
         }
     }
     private func removeOrphans(keeping id: UUID) {

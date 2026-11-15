@@ -56,6 +56,7 @@ mkdir -p "$PROFILE_DIR" build/export
 PROFILE_PATH="$PROFILE_DIR/$PROFILE_UUID.mobileprovision"
 [[ ! -e "$PROFILE_PATH" ]] || { echo 'Profile path already exists; refusing to overwrite.'; PROFILE_PATH=''; exit 2; }
 cp "$WORK/profile.mobileprovision" "$PROFILE_PATH"
+bash scripts/prepare_llama.sh
 python3 scripts/GenerateAppIcon.py
 xcodegen generate
 BUILD_NUMBER="${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}"
@@ -63,7 +64,7 @@ xcodebuild -project WorldEXE.xcodeproj -scheme WorldEXE -configuration Release \
   -destination 'generic/platform=iOS' -archivePath build/WorldEXE.xcarchive \
   DEVELOPMENT_TEAM="$DEVELOPMENT_TEAM" CODE_SIGN_STYLE=Manual \
   CODE_SIGN_IDENTITY="$IDENTITY" PROVISIONING_PROFILE_SPECIFIER="$PROVISIONING_PROFILE_NAME" \
-  CURRENT_PROJECT_VERSION="$BUILD_NUMBER" MARKETING_VERSION=0.1.0 archive
+  CURRENT_PROJECT_VERSION="$BUILD_NUMBER" MARKETING_VERSION=0.2.0 archive
 APP=build/WorldEXE.xcarchive/Products/Applications/WorldEXE.app
 codesign --verify --deep --strict "$APP"
 [[ "$(plutil -extract CFBundleIdentifier raw -o - "$APP/Info.plist")" == "$PRODUCT_BUNDLE_IDENTIFIER" ]] || exit 2
@@ -87,4 +88,4 @@ PY
   API_PRIVATE_KEYS_DIR="$WORK/private_keys" xcrun altool --upload-app --type ios -f "$IPA" --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID"
   UPLOADED=true
 fi
-printf '# Release receipt\nCommit: %s\nBuild: 0.1.0 (%s)\nSignature verified: yes\nUpload command accepted: %s\nApple processing and TestFlight group availability: must be checked independently.\n' "$GITHUB_SHA" "$BUILD_NUMBER" "$UPLOADED" > build/RELEASE_RECEIPT.md
+printf '# Release receipt\nCommit: %s\nBuild: 0.2.0 (%s)\nSignature verified: yes\nUpload command accepted: %s\nApple processing and TestFlight group availability: must be checked independently.\n' "$GITHUB_SHA" "$BUILD_NUMBER" "$UPLOADED" > build/RELEASE_RECEIPT.md

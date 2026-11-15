@@ -11,6 +11,7 @@ core() {
   touch build/core.ok
 }
 simulator() {
+  bash scripts/prepare_llama.sh
   python3 scripts/GenerateAppIcon.py
   xcodegen generate
   xcodebuild -project WorldEXE.xcodeproj -scheme WorldEXE -configuration Debug \
@@ -42,6 +43,23 @@ if d['state']!='Booted': subprocess.run(['xcrun','simctl','boot',d['udid']],chec
 subprocess.run(['xcrun','simctl','bootstatus',d['udid'],'-b'],check=True,timeout=240)
 PY
   local id; id=$(cat build/simulator-id.txt)
+  xcrun simctl install "$id" build/DerivedData/Build/Products/Debug-iphonesimulator/WorldEXE.app
+  export WORLD_SIM_CONTAINER
+  WORLD_SIM_CONTAINER=$(xcrun simctl get_app_container "$id" org.worldexe.prototype data)
+  python3 - <<'MODEL_FIXTURE'
+import json,os,shutil
+from pathlib import Path
+m=json.loads(Path('Dependencies/models.json').read_text())['defaultModel']
+source=Path(os.environ.get('RUNNER_TEMP','/tmp'))/'world-qwen-23749fef'/m['filename']
+assert source.is_file() and source.stat().st_size==m['bytes']
+root=Path(os.environ['WORLD_SIM_CONTAINER'])/'Library'/'Application Support'/'Models-CI'
+root.mkdir(parents=True,exist_ok=True)
+filename=m['sha256']+'.gguf'
+shutil.copyfile(source,root/filename)
+record={'name':'Qwen3 native UI fixture','filename':filename,'bytes':m['bytes'],'sha256':m['sha256'],'source':'Pinned model; real runtime, not a mock'}
+(root/'installed-v1.json').write_text(json.dumps(record),encoding='utf-8')
+print('Isolated real GGUF fixture installed in simulator app container.')
+MODEL_FIXTURE
   xcodebuild -project WorldEXE.xcodeproj -scheme WorldEXE -configuration Debug \
     -destination "platform=iOS Simulator,id=$id" -derivedDataPath build/DerivedData \
     -resultBundlePath build/TestResults.xcresult -parallel-testing-enabled NO \
