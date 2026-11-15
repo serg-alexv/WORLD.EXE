@@ -15,3 +15,6 @@ LocalLlama/Frameworks/
 *.gguf
 *.safetensors
 App/Info.plist
+
+__pycache__/
+*.pyc
