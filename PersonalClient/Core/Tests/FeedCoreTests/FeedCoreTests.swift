@@ -196,4 +196,20 @@ final class FeedCoreTests: XCTestCase {
         XCTAssertEqual(v.items[0].revision, 40)
         v.deleteSource(s.id); XCTAssertTrue(v.items.isEmpty); XCTAssertTrue(v.isValid)
     }
+    func testDirectDecoderCannotBypassArchiveValidation() throws {
+        let initial = try SyntheticDemo.vault()
+        var object = try XCTUnwrap(JSONSerialization.jsonObject(with: initial.encoded()) as? [String: Any])
+        let sources = try XCTUnwrap(object["sources"] as? [[String: Any]])
+        object["sources"] = sources + sources
+        let data = try JSONSerialization.data(withJSONObject: object)
+        XCTAssertThrowsError(try JSONDecoder().decode(FeedVault.self, from: data))
+    }
+    func testDirectDecoderRejectsOversizedSourceArray() throws {
+        let initial = try SyntheticDemo.vault()
+        var object = try XCTUnwrap(JSONSerialization.jsonObject(with: initial.encoded()) as? [String: Any])
+        let source = try XCTUnwrap((object["sources"] as? [[String: Any]])?.first)
+        object["sources"] = Array(repeating: source, count: 33)
+        XCTAssertThrowsError(try JSONDecoder().decode(FeedVault.self, from: JSONSerialization.data(withJSONObject: object)))
+    }
+
 }

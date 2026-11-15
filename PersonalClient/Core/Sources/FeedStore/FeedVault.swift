@@ -105,6 +105,26 @@ public struct FeedVault: Codable, Equatable, Sendable {
         guard data.count <= Self.maximumBytes else { throw FeedError.tooLarge }
         return data
     }
+    private enum CodingKeys: String, CodingKey { case schemaVersion, sources, items, annotations }
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        schemaVersion = try c.decode(Int.self, forKey: .schemaVersion)
+        guard schemaVersion == 1 else { throw FeedError.invalidArchive }
+        func bounded<T: Decodable>(_ key: CodingKeys, limit: Int, as: T.Type) throws -> [T] {
+            var values = try c.nestedUnkeyedContainer(forKey: key)
+            if let count = values.count, count > limit { throw FeedError.tooLarge }
+            var result: [T] = []
+            while !values.isAtEnd {
+                guard result.count < limit else { throw FeedError.tooLarge }
+                result.append(try values.decode(T.self))
+            }
+            return result
+        }
+        sources = try bounded(.sources, limit: 32, as: SourceState.self)
+        items = try bounded(.items, limit: Self.maximumItems, as: FeedItem.self)
+        annotations = try bounded(.annotations, limit: 2_000, as: FeedAnnotation.self)
+        guard isValid else { throw FeedError.invalidArchive }
+    }
     public init(data: Data) throws {
         guard data.count <= Self.maximumBytes else { throw FeedError.tooLarge }
         do { self = try JSONDecoder().decode(Self.self, from: data) } catch { throw FeedError.invalidArchive }
