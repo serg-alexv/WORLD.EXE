@@ -67,18 +67,18 @@ public struct EvidenceJournal: Sendable {
     private var telemetry: EvidenceRing<TelemetryRecord>
     private var gameplay: EvidenceRing<GameEventRecord>
     public private(set) var lastSequence: UInt64 = 0
-    private var lastUptime: Double = 0
+    private var lastElapsed: Double = 0
     public init(session: UUID = UUID(), capacityPerLane: Int = 128) throws {
         guard (1...1024).contains(capacityPerLane) else { throw EvidenceError.invalidCapacity }
-        _ = try EvidenceStamp(session: session, sequence: 1, recordedAt: Date(), uptime: 0)
+        _ = try EvidenceStamp(session: session, sequence: 1, recordedAt: Date(), elapsedSeconds: 0)
         self.session = session; capacity = capacityPerLane; observations = .init(capacity: capacityPerLane)
         telemetry = .init(capacity: capacityPerLane); gameplay = .init(capacity: capacityPerLane)
     }
     private mutating func accept(_ stamp: EvidenceStamp) throws {
         guard stamp.isValid else { throw EvidenceError.invalidRecord }
         guard stamp.session == session else { throw EvidenceError.wrongSession }
-        guard stamp.sequence > lastSequence, stamp.uptime >= lastUptime else { throw EvidenceError.staleSequence }
-        lastSequence = stamp.sequence; lastUptime = stamp.uptime
+        guard stamp.sequence > lastSequence, stamp.elapsedSeconds >= lastElapsed else { throw EvidenceError.staleSequence }
+        lastSequence = stamp.sequence; lastElapsed = stamp.elapsedSeconds
     }
     public mutating func append(_ record: ObservationRecord) throws {
         guard record.isValid else { throw EvidenceError.invalidRecord }; try accept(record.stamp); observations.append(record)

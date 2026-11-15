@@ -58,6 +58,7 @@ struct ContactARView: UIViewRepresentable {
         private var sentTransform: [Float]?
         private let frameLock = NSLock()
         private var lastFrameTime: TimeInterval = -1
+        private var evidenceFrameOrigin: TimeInterval?
         private var lastTrackingText = ""
         private let meshLock = NSLock()
         private var pendingMeshes: Set<UUID> = []
@@ -108,6 +109,8 @@ struct ContactARView: UIViewRepresentable {
         }
         func session(_ session: ARSession, didUpdate frame: ARFrame) {
             frameLock.lock()
+            if evidenceFrameOrigin == nil { evidenceFrameOrigin = frame.timestamp }
+            let sensorElapsed = max(0, frame.timestamp - (evidenceFrameOrigin ?? frame.timestamp))
             let deliver = frame.timestamp - lastFrameTime >= 0.2
             if deliver { lastFrameTime = frame.timestamp }
             frameLock.unlock()
@@ -119,12 +122,12 @@ struct ContactARView: UIViewRepresentable {
             case .notAvailable: quality = .unavailable; normal = false; text = "Отслеживание недоступно"
             case .limited: quality = .limited; normal = false; text = "Отслеживание ограничено. Осмотритесь медленно; затем нажмите «Продолжить»."
             }
-            let sensorTime = frame.timestamp
+            let sensorTime = sensorElapsed
             DispatchQueue.main.async { [weak self] in
                 guard let self, self.live, self.running else { return }
                 if self.lastEvidenceQuality != quality {
                     self.lastEvidenceQuality = quality
-                    self.evidence?.recordTracking(id: self.evidenceCapture, quality: quality, sensorTimestamp: sensorTime)
+                    self.evidence?.recordTracking(id: self.evidenceCapture, quality: quality, sensorElapsedSeconds: sensorTime)
                 }
                 let next = normal && !self.interrupted && !self.rootLost && self.running
                 guard next != self.normal || text != self.lastTrackingText else { return }

@@ -7,7 +7,7 @@ final class EvidenceCoreTests: XCTestCase {
     let capture = UUID()
     let wall = Date(timeIntervalSince1970: 1_800_000_000)
     func stamp(_ n: UInt64 = 1, uptime: Double? = nil, date: Date? = nil) throws -> EvidenceStamp {
-        try EvidenceStamp(session: session, sequence: n, recordedAt: date ?? wall, uptime: uptime ?? Double(n))
+        try EvidenceStamp(session: session, sequence: n, recordedAt: date ?? wall, elapsedSeconds: uptime ?? Double(n))
     }
     func room(_ n: UInt64 = 1) throws -> ObservationRecord {
         try ObservationRecord(stamp: stamp(n), source: .roomPlan, origin: .localSensor, captureID: capture, capturedAt: wall, payload: .roomSummary(elements: 12))
@@ -127,7 +127,7 @@ final class EvidenceCoreTests: XCTestCase {
     func testStaleAndForeignRecordsRejectedAtomically() throws {
         var j = try EvidenceJournal(session: session); try j.append(room(2))
         XCTAssertThrowsError(try j.append(game(1))); XCTAssertEqual(j.lastSequence, 2)
-        let foreign = try EvidenceStamp(session: UUID(), sequence: 3, recordedAt: wall, uptime: 3)
+        let foreign = try EvidenceStamp(session: UUID(), sequence: 3, recordedAt: wall, elapsedSeconds: 3)
         XCTAssertThrowsError(try j.append(TelemetryRecord(stamp: foreign, payload: .runtime(.nominal))))
         XCTAssertEqual(j.snapshot.telemetry.count, 0)
     }
@@ -141,6 +141,20 @@ final class EvidenceCoreTests: XCTestCase {
     func testInvalidCapacityAndOversizedArchiveRejected() throws {
         for n in [-1,0,1025] { XCTAssertThrowsError(try EvidenceJournal(capacityPerLane: n)) }
         XCTAssertThrowsError(try EvidenceSnapshot.decode(Data(repeating: 32, count: 4 * 1024 * 1024 + 1)))
+    }
+    func testRelativeClockNeverExposesItsOrigin() throws {
+        let clock = try EvidenceClock(monotonicOrigin: 9_876_543)
+        XCTAssertEqual(try clock.elapsed(at: 9_876_543), 0)
+        XCTAssertEqual(try clock.elapsed(at: 9_876_545.25), 2.25)
+        let time = try EvidenceStamp(session: session, sequence: 1, recordedAt: wall, elapsedSeconds: clock.elapsed(at: 9_876_545.25))
+        let text = String(decoding: try JSONEncoder().encode(time), as: UTF8.self)
+        XCTAssertFalse(text.contains("9876543")); XCTAssertFalse(text.contains("uptime"))
+        XCTAssertTrue(text.contains("elapsedSeconds"))
+    }
+    func testRelativeClockRejectsNonfiniteAndBackwardTime() throws {
+        for origin in [-1.0, Double.nan, Double.infinity] { XCTAssertThrowsError(try EvidenceClock(monotonicOrigin: origin)) }
+        let clock = try EvidenceClock(monotonicOrigin: 50)
+        for next in [49.0, Double.nan, Double.infinity] { XCTAssertThrowsError(try clock.elapsed(at: next)) }
     }
     func testGameFreeTextCannotContainPromptOrNarration() throws {
         XCTAssertThrowsError(try GameEventRecord(stamp: stamp(), missionID: UUID(), kind: .contactCommand, action: "LLM says there is an anomaly"))
