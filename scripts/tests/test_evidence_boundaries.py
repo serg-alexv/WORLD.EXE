@@ -25,6 +25,14 @@ class EvidenceBoundaryGuards(unittest.TestCase):
         self.assertIn('origin: .restoredArchive', text)
         self.assertIn('origin: .localSensor', text)
         self.assertIn('date: record.processedAt', text)
+    def test_elapsed_time_privacy_reason_and_relative_export(self):
+        import plistlib
+        manifest = plistlib.loads((ROOT/'App/PrivacyInfo.xcprivacy').read_bytes())
+        categories = {item['NSPrivacyAccessedAPIType']: item['NSPrivacyAccessedAPITypeReasons'] for item in manifest['NSPrivacyAccessedAPITypes']}
+        self.assertIn('35F9.1', categories['NSPrivacyAccessedAPICategorySystemBootTime'])
+        text = (ROOT/'App/Evidence/EvidenceStore.swift').read_text()
+        self.assertIn('elapsedSeconds: clock.elapsed(', text)
+        self.assertNotIn('uptime: ProcessInfo', text)
     def test_both_swift_test_targets_are_registered(self):
         package = (ROOT/'WorldCore/Package.swift').read_text()
         project = (ROOT/'project.yml').read_text()

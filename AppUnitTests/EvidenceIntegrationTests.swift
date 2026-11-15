@@ -49,6 +49,15 @@ final class EvidenceIntegrationTests: XCTestCase {
         guard case .inference(let inference) = log.snapshot.telemetry[0].payload else { return XCTFail("Wrong lane") }
         XCTAssertNil(inference.confirmedBackend); XCTAssertEqual(inference.requestTokensPerSecond, 8)
     }
+    func testAppJournalUsesRelativeElapsedTime() throws {
+        let log = EvidenceStore(persist: false)
+        log.recordRoom(id: UUID(), date: Date(), elements: 1, origin: .localSensor)
+        let time = try XCTUnwrap(log.snapshot.observations.first?.stamp.elapsedSeconds)
+        XCTAssertGreaterThanOrEqual(time, 0)
+        XCTAssertLessThan(time, 5, "Time must be relative to this journal, not device uptime")
+        let json = String(decoding: try log.snapshot.encoded(), as: UTF8.self)
+        XCTAssertFalse(json.contains("uptime")); XCTAssertTrue(json.contains("elapsedSeconds"))
+    }
     func testFailedInferenceKeepsUnknownValues() {
         let log = EvidenceStore(persist: false)
         log.recordInference(sha: String(repeating: "f", count: 64), requested: .cpu, tokens: nil, seconds: nil, outcome: .failed)

@@ -69,7 +69,7 @@ struct EvidenceScreen: View {
         }
         .sheet(isPresented: $sharing) { ExportSheet(urls: urls) }
         .alert("Очистить текущий раздел?", isPresented: $confirmClear) {
-            Button("Очистить", role: .destructive) { store.clear(lane) }.accessibilityIdentifier("evidence.clear.confirm")
+            Button("Очистить", role: .destructive) { store.clear(lane) }
             Button("Отмена", role: .cancel) {}
         } message: { Text("Другие журналы, комната, GGUF и игровой прогресс не изменятся. Предыдущий запуск сохраняется отдельно.") }
     }

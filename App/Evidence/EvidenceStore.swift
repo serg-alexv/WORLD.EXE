@@ -10,6 +10,7 @@ final class EvidenceStore: ObservableObject {
     @Published var recording = true
     @Published private(set) var status = "Локальная запись: три независимых журнала."
     private var journal = try! EvidenceJournal(capacityPerLane: 128)
+    private let clock = try! EvidenceClock(monotonicOrigin: ProcessInfo.processInfo.systemUptime)
     private let io = DispatchQueue(label: "org.worldexe.evidence.disk", qos: .utility)
     private var pending: DispatchWorkItem?
     private let persist: Bool
@@ -43,7 +44,7 @@ final class EvidenceStore: ObservableObject {
         dispatchPrecondition(condition: .onQueue(.main))
         guard journal.lastSequence < .max else { throw EvidenceError.staleSequence }
         return try EvidenceStamp(session: journal.session, sequence: journal.lastSequence + 1,
-                                 recordedAt: Date(), uptime: ProcessInfo.processInfo.systemUptime)
+                                 recordedAt: Date(), elapsedSeconds: clock.elapsed(at: ProcessInfo.processInfo.systemUptime))
     }
     private func changed() {
         revision &+= 1
@@ -60,11 +61,11 @@ final class EvidenceStore: ObservableObject {
             changed()
         } catch { rejected() }
     }
-    func recordTracking(id: UUID, quality: TrackingQuality, sensorTimestamp: Double? = nil) {
+    func recordTracking(id: UUID, quality: TrackingQuality, sensorElapsedSeconds: Double? = nil) {
         guard recording else { return }
         do {
             try journal.append(ObservationRecord(stamp: stamp(), source: .arkit, origin: .localSensor,
-                                                  captureID: id, sensorTimestamp: sensorTimestamp, payload: .tracking(quality)))
+                                                  captureID: id, sensorElapsedSeconds: sensorElapsedSeconds, payload: .tracking(quality)))
             changed()
         } catch { rejected() }
     }

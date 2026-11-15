@@ -16,14 +16,14 @@ public struct EvidenceStamp: Codable, Equatable, Sendable {
     public let session: UUID
     public let sequence: UInt64
     public let recordedAt: Date
-    /// Seconds on the local process's monotonic clock. Never compare across sessions/devices.
-    public let uptime: Double
-    public init(id: UUID = UUID(), session: UUID, sequence: UInt64, recordedAt: Date, uptime: Double) throws {
-        self.id = id; self.session = session; self.sequence = sequence; self.recordedAt = recordedAt; self.uptime = uptime
+    /// Seconds elapsed since this journal session started. Never compare across sessions/devices.
+    public let elapsedSeconds: Double
+    public init(id: UUID = UUID(), session: UUID, sequence: UInt64, recordedAt: Date, elapsedSeconds: Double) throws {
+        self.id = id; self.session = session; self.sequence = sequence; self.recordedAt = recordedAt; self.elapsedSeconds = elapsedSeconds
         guard isValid else { throw EvidenceError.invalidRecord }
     }
     public var isValid: Bool {
-        id != zeroUUID && session != zeroUUID && sequence > 0 && uptime.isFinite && uptime >= 0 && recordedAt.timeIntervalSince1970.isFinite
+        id != zeroUUID && session != zeroUUID && sequence > 0 && elapsedSeconds.isFinite && elapsedSeconds >= 0 && recordedAt.timeIntervalSince1970.isFinite
     }
 }
 private let zeroUUID = UUID(uuid: (0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0))
@@ -55,32 +55,32 @@ public struct ObservationRecord: Codable, Equatable, Sendable {
     public let captureID: UUID
     /// Original capture/processing time, retained when restoring an archive.
     public let capturedAt: Date?
-    /// Original ARFrame.timestamp, in the AR session's clock; not UTC.
-    public let sensorTimestamp: Double?
+    /// Seconds from this observer's first AR frame, never raw device uptime or UTC.
+    public let sensorElapsedSeconds: Double?
     public let payload: ObservationPayload
     public var isPhysicalMeasurement: Bool { false } // This version exposes estimates, not calibrated raw ranging.
     public var isValid: Bool {
         guard lane == .observation, stamp.isValid, captureID != zeroUUID, payload.valid, payload.accepts(source),
               capturedAt.map({ $0.timeIntervalSince1970.isFinite }) ?? true,
-              sensorTimestamp.map({ $0.isFinite && $0 >= 0 }) ?? true else { return false }
+              sensorElapsedSeconds.map({ $0.isFinite && $0 >= 0 }) ?? true else { return false }
         if origin == .restoredArchive && capturedAt == nil { return false }
-        if source == .roomPlan && sensorTimestamp != nil { return false }
+        if source == .roomPlan && sensorElapsedSeconds != nil { return false }
         return true
     }
     public init(stamp: EvidenceStamp, source: ObservationSource, origin: ObservationOrigin,
-                captureID: UUID, capturedAt: Date? = nil, sensorTimestamp: Double? = nil, payload: ObservationPayload) throws {
+                captureID: UUID, capturedAt: Date? = nil, sensorElapsedSeconds: Double? = nil, payload: ObservationPayload) throws {
         nature = .estimate; lane = .observation; self.stamp = stamp; self.source = source; self.origin = origin
-        self.captureID = captureID; self.capturedAt = capturedAt; self.sensorTimestamp = sensorTimestamp; self.payload = payload
+        self.captureID = captureID; self.capturedAt = capturedAt; self.sensorElapsedSeconds = sensorElapsedSeconds; self.payload = payload
         guard isValid else { throw EvidenceError.invalidRecord }
     }
-    private enum CodingKeys: String, CodingKey { case nature, lane, stamp, source, origin, captureID, capturedAt, sensorTimestamp, payload }
+    private enum CodingKeys: String, CodingKey { case nature, lane, stamp, source, origin, captureID, capturedAt, sensorElapsedSeconds, payload }
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         guard try c.decode(EvidenceLane.self, forKey: .lane) == .observation,
               try c.decode(ObservationNature.self, forKey: .nature) == .estimate else { throw EvidenceError.wrongLane }
         try self.init(stamp: c.decode(EvidenceStamp.self, forKey: .stamp), source: c.decode(ObservationSource.self, forKey: .source),
                       origin: c.decode(ObservationOrigin.self, forKey: .origin), captureID: c.decode(UUID.self, forKey: .captureID),
-                      capturedAt: c.decodeIfPresent(Date.self, forKey: .capturedAt), sensorTimestamp: c.decodeIfPresent(Double.self, forKey: .sensorTimestamp),
+                      capturedAt: c.decodeIfPresent(Date.self, forKey: .capturedAt), sensorElapsedSeconds: c.decodeIfPresent(Double.self, forKey: .sensorElapsedSeconds),
                       payload: c.decode(ObservationPayload.self, forKey: .payload))
     }
 }

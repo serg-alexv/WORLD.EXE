@@ -13,7 +13,11 @@ final class EvidenceUITests: XCTestCase {
         XCTAssertFalse(app.staticTexts["evidence.gameplay.count"].label.hasPrefix("Записей: 0"))
         let clear = app.buttons["evidence.clear"]
         for _ in 0..<5 { if clear.isHittable { break }; app.swipeUp() }
-        clear.tap(); app.alerts.buttons["evidence.clear.confirm"].tap()
+        clear.tap()
+        let confirmation = app.alerts.firstMatch.buttons["Очистить"]
+        XCTAssertTrue(confirmation.waitForExistence(timeout: 5))
+        XCTAssertTrue(confirmation.isHittable)
+        confirmation.tap()
         app.buttons["evidence.close"].tap()
         XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "TURN 2")).firstMatch.exists)
         let screenshot = XCTAttachment(screenshot: app.screenshot())
