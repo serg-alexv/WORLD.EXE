@@ -21,6 +21,10 @@ class FusionBoundaries(unittest.TestCase):
         host=text.split('  WorldEXE:\n',1)[1].split('  PersonalFeedFeature:\n',1)[0]
         for product in ['FeedDomain','FeedAdapters','FeedStore']:
             self.assertIn('product: '+product,host)
+    def test_feature_compiler_resolves_multi_consumer_package_frameworks(self):
+        project=(ROOT/'project.yml').read_text(encoding='utf-8')
+        feature=project.split('  PersonalFeedFeature:\n',1)[1].split('  FusionFeedTests:',1)[0]
+        self.assertIn('FRAMEWORK_SEARCH_PATHS: "$(inherited) $(BUILT_PRODUCTS_DIR)/PackageFrameworks"',feature)
     def test_host_only_imports_feature_at_workspace_boundary(self):
         for source in (ROOT/'App').rglob('*.swift'):
             text=source.read_text(encoding='utf-8')
