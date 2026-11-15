@@ -209,4 +209,51 @@ final class SignalSiegeIntegrationTests: XCTestCase {
             XCTAssertEqual(storage.data(forKey: scoresKey), savedScores)
         }
     }
+    func testHumorTracksEventsButNeverBecomesEvidence() throws {
+        let log = EvidenceStore(persist: false)
+        let store = SignalSiegeStore(persist: false, evidence: log)
+        XCTAssertEqual(store.voiceEvent, .deployment)
+        store.perform(.move(SiegeCell(1, 4)))
+        XCTAssertEqual(store.voiceEvent, .move)
+        let before = store.mission
+        for tone in SiegeHumor.allCases {
+            _ = SiegeVoice.line(store.voiceEvent, tone: tone, variant: store.voiceVariant)
+            _ = SiegeVoice.prompt(mission: store.mission, tone: tone)
+        }
+        XCTAssertEqual(store.mission, before)
+        XCTAssertEqual(log.snapshot.gameplay.count, 1)
+        XCTAssertTrue(log.snapshot.observations.isEmpty)
+        XCTAssertTrue(log.snapshot.telemetry.isEmpty)
+        let journal = String(decoding: try log.snapshot.encoded(), as: UTF8.self)
+        XCTAssertFalse(journal.contains("КИРА"))
+        XCTAssertFalse(journal.contains("Эвакуируем бюджет"))
+    }
+
+    func testRejectedCommandKeepsFactualErrorSeparateFromJoke() {
+        let store = SignalSiegeStore(persist: false)
+        let before = store.mission
+        store.perform(.extract)
+        XCTAssertEqual(store.mission, before)
+        XCTAssertEqual(store.voiceEvent, .rejected)
+        XCTAssertEqual(store.message, SiegeError.prerequisite.localizedDescription)
+        XCTAssertNotEqual(store.message, SiegeVoice.line(.rejected, tone: .black))
+    }
+
+    func testRankingNarrativeDoesNotChangeScoreOrClearMission() {
+        let store = SignalSiegeStore(persist: false)
+        store.replay(seed: 31, difficulty: .standard)
+        XCTAssertEqual(store.voiceEvent, .replay)
+        finish(store)
+        XCTAssertEqual(store.voiceEvent, .victory)
+        XCTAssertEqual(store.rankingVoice, .rankingSaved)
+        let before = store.mission
+        let score = before.score
+        _ = SiegeVoice.line(.rankingSaved, tone: .black)
+        XCTAssertEqual(store.mission.score, score)
+        store.clearRankings()
+        XCTAssertEqual(store.mission, before)
+        XCTAssertEqual(store.rankingVoice, .rankingCleared)
+        XCTAssertTrue(store.leaderboard.isEmpty)
+    }
+
 }

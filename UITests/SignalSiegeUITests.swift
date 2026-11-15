@@ -57,4 +57,24 @@ final class SignalSiegeUITests: XCTestCase {
         app.buttons["siege.rankingsClose"].tap()
         XCTAssertTrue(app.buttons["siege.close"].exists)
     }
+    func testHumorSelectorChangesCopyWithoutChangingMission() {
+        let app = openChallenge()
+        let before = app.staticTexts["siege.status"].label
+        let picker = app.segmentedControls["siege.humor"]
+        reveal(picker, in: app)
+        picker.buttons["Чёрный"].tap()
+        let dialogue = app.staticTexts["siege.npc.dialogue"]
+        reveal(dialogue, in: app)
+        XCTAssertTrue(dialogue.label.contains("Эвакуируем бюджет"))
+        picker.buttons["Без шуток"].tap()
+        XCTAssertTrue(dialogue.label.contains("Заберите сигнал"))
+        picker.buttons["Сарказм"].tap()
+        XCTAssertTrue(dialogue.label.contains("План нам пока не выдали"))
+        XCTAssertEqual(app.staticTexts["siege.status"].label, before)
+        XCTAssertEqual(app.staticTexts["siege.npc.source"].label, "Сценарная реплика · без генерации")
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = "Signal Siege tone selector and explicitly scripted NPC"
+        shot.lifetime = .keepAlways; add(shot)
+    }
+
 }

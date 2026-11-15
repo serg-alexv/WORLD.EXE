@@ -293,6 +293,7 @@ private struct SignalSiegeNPCPanel: View {
     @State private var showModels = false
     @State private var requestToken = UUID()
     @State private var responseTask: Task<Void, Never>?
+    @State private var engineStatus = ""
 
     private var fallback: String { "КИРА: " + SiegeVoice.line(event, tone: tone, variant: variant) }
 
@@ -304,6 +305,7 @@ private struct SignalSiegeNPCPanel: View {
                 .accessibilityIdentifier("siege.npc.label")
             Text(dialogue.isEmpty ? fallback : dialogue).font(.callout).accessibilityIdentifier("siege.npc.dialogue")
             Text(source).font(.caption2).foregroundStyle(.secondary).accessibilityIdentifier("siege.npc.source")
+            if !engineStatus.isEmpty { Text(engineStatus).font(.caption2).foregroundStyle(.secondary) }
             HStack {
                 Button(requesting ? "Кира подбирает слова…" : "Ответ загруженной GGUF") { askNPC() }
                     .buttonStyle(.bordered).disabled(!brain.isLoaded || brain.isBusy || requesting)
@@ -337,7 +339,7 @@ private struct SignalSiegeNPCPanel: View {
         // Cancel only this view's request, never an unrelated model import or download.
         if requesting { brain.cancel() }
         responseTask?.cancel(); responseTask = nil; requesting = false
-        dialogue = ""; source = "Сценарная реплика · без генерации"
+        dialogue = ""; source = "Сценарная реплика · без генерации"; engineStatus = ""
     }
 
     private func askNPC() {
@@ -351,6 +353,7 @@ private struct SignalSiegeNPCPanel: View {
             guard !Task.isCancelled, requestToken == token, brain.isLoaded, !brain.isBusy else { return }
             await brain.respond(to: prompt)
             guard !Task.isCancelled, requestToken == token else { return }
+            engineStatus = brain.status
             let answer = brain.response.trimmingCharacters(in: .whitespacesAndNewlines)
             dialogue = answer.isEmpty ? script : String(answer.prefix(900))
             source = answer.isEmpty ? "Сценарная реплика · генерация недоступна" : "Локальная GGUF / llama.cpp · вымышленный ход \(turn)"
