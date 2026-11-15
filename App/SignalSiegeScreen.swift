@@ -249,7 +249,7 @@ private struct SiegeRankingsScreen: View {
                     Text("Offline · this device only").foregroundStyle(Palette.teal).accessibilityIdentifier("siege.rankingsScope")
                     Text("Signal Siege · seed \(store.mission.seed) · \(store.mission.difficulty.rawValue.capitalized)")
                     Text(store.rankingStatus).font(.caption).accessibilityIdentifier("siege.rankingStatus")
-                    Text(SiegeVoice.line(store.leaderboard.isEmpty && store.rankingVoice != .rankingCleared ? .rankingEmpty : store.rankingVoice, tone: tone))
+                    Text(SiegeVoice.line(SiegeVoice.rankingEvent(hasEntries: !store.leaderboard.entries(seed: store.mission.seed, difficulty: store.mission.difficulty).isEmpty, wasCleared: store.rankingVoice == .rankingCleared), tone: tone))
                         .font(.caption).foregroundStyle(Palette.amber).accessibilityIdentifier("siege.rankingQuip")
                 }
                 Section("Top 10 · completed victories") {
