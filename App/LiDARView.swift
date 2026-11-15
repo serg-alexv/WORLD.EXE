@@ -2,8 +2,10 @@ import SwiftUI
 import ARKit
 import SceneKit
 import AVFoundation
+import EvidenceCore
 
 struct LiDARView: View {
+    var evidence: EvidenceStore? = nil
     @StateObject private var camera = CameraAccess()
     @Environment(\.scenePhase) private var scenePhase
     @State private var visible = false
@@ -20,7 +22,7 @@ struct LiDARView: View {
                 ZStack {
                     RoundedRectangle(cornerRadius: 16).fill(Palette.panel)
                     if running {
-                        LiveMeshView(status: $status, failed: { running = false })
+                        LiveMeshView(status: $status, failed: { running = false }, evidence: evidence)
                     } else {
                         Label("Live sensor paused", systemImage: "viewfinder").foregroundStyle(.secondary)
                     }
@@ -58,7 +60,8 @@ struct LiDARView: View {
 struct LiveMeshView: UIViewRepresentable {
     @Binding var status: String
     let failed: () -> Void
-    func makeCoordinator() -> Coordinator { Coordinator(status: $status, failed: failed) }
+    var evidence: EvidenceStore? = nil
+    func makeCoordinator() -> Coordinator { Coordinator(status: $status, failed: failed, evidence: evidence) }
     func makeUIView(context: Context) -> ARSCNView {
         let view = ARSCNView(frame: .zero)
         view.scene = SCNScene()
@@ -87,18 +90,23 @@ struct LiveMeshView: UIViewRepresentable {
         private let lock = NSLock()
         private var chunks: Set<UUID> = []
         private var valid = true
-        init(status: Binding<String>, failed: @escaping () -> Void) {
+        private weak var evidence: EvidenceStore?
+        private let captureID = UUID()
+        private var lastEvidenceTime = -Double.greatestFiniteMagnitude
+        init(status: Binding<String>, failed: @escaping () -> Void, evidence: EvidenceStore?) {
+            self.evidence = evidence
             self.status = status
             self.failed = failed
         }
         func invalidate() { lock.lock(); valid = false; lock.unlock() }
-        private func publish(_ message: String, failure: Bool = false) {
+        private func publish(_ message: String, failure: Bool = false, quality: TrackingQuality? = nil) {
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
                 self.lock.lock()
                 let active = self.valid
                 self.lock.unlock()
                 guard active else { return }
+                if let quality { self.evidence?.recordTracking(id: self.captureID, quality: quality) }
                 self.status.wrappedValue = message
                 if failure { self.failed() }
             }
@@ -149,12 +157,23 @@ struct LiveMeshView: UIViewRepresentable {
             material.transparency = 0.75
             geometry.materials = [material]
             node.geometry = geometry
+            let now = ProcessInfo.processInfo.systemUptime
+            lock.lock(); let report = valid && now - lastEvidenceTime >= 1
+            if report { lastEvidenceTime = now }; lock.unlock()
+            if report {
+                let vertexCount = vertices.count, triangleCount = faces.count, identifier = anchor.identifier
+                DispatchQueue.main.async { [weak self] in
+                    guard let self else { return }
+                    self.lock.lock(); let live = self.valid; self.lock.unlock()
+                    if live { self.evidence?.recordMesh(id: identifier, vertices: vertexCount, triangles: triangleCount) }
+                }
+            }
         }
         func session(_ session: ARSession, cameraDidChangeTrackingState camera: ARCamera) {
             switch camera.trackingState {
-            case .normal: publish("Tracking normal. Teal wireframe is live estimated LiDAR geometry.")
-            case .notAvailable: publish("Tracking unavailable. Pause and restart when the camera is clear.")
-            case .limited(let reason): publish("Tracking limited: \(String(describing: reason)). Move slowly in good light.")
+            case .normal: publish("Tracking normal. Teal wireframe is live estimated LiDAR geometry.", quality: .normal)
+            case .notAvailable: publish("Tracking unavailable. Pause and restart when the camera is clear.", quality: .unavailable)
+            case .limited(let reason): publish("Tracking limited: \(String(describing: reason)). Move slowly in good light.", quality: .limited)
             }
         }
         func session(_ session: ARSession, didFailWithError error: Error) {
