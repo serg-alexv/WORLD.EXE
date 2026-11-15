@@ -15,7 +15,7 @@ import sys
 import tempfile
 
 ROOT_FILES = {'.gitignore', '.gitattributes', 'AGENTS.md', 'BACKLOG.md', 'GENESIS.md', 'README.md', 'project.yml', 'LICENSE'}
-ROOT_DIRS = {'App', 'WorldCore', 'LocalLlama', 'Dependencies', 'Benchmarks', 'UITests', 'docs', 'scripts', '.github'}
+ROOT_DIRS = {'App', 'WorldCore', 'LocalLlama', 'Dependencies', 'Benchmarks', 'UITests', 'AppUnitTests', 'docs', 'scripts', '.github'}
 TEXT_EXT = {'.swift','.c','.cc','.cpp','.h','.hpp','.m','.mm','.metal','.md','.txt','.py','.ps1','.sh','.yml','.yaml','.json','.plist','.xcprivacy','.modulemap','.xcconfig'}
 EXCLUDED_PARTS = {'.git','.build','.swiftpm','build','DerivedData','Frameworks','__pycache__','node_modules','xcuserdata'}
 SECRET_PATTERNS = [re.compile(p) for p in (
