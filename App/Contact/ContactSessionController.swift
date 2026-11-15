@@ -2,10 +2,12 @@ import Foundation
 import Combine
 import ARKit
 import WorldCore
+import EvidenceCore
 
 @MainActor final class ContactSessionController: ObservableObject {
     enum Mode { case lobby, host, guest, demo }
     let peer = ContactPeer()
+    private let evidence: EvidenceStore?
     @Published private(set) var mode: Mode = .lobby
     @Published private(set) var mission: ContactMission?
     @Published private(set) var received: ContactPublicState?
@@ -35,7 +37,8 @@ import WorldCore
     var canPlace: Bool { mode == .host && !background && tracking && localReady && remoteReady && peer.connected && root == nil }
     var canStabilize: Bool { guard let s = state, let g = glyph else { return false }; return canAct && s.phase == .active && s.poweredNode == selected && s.channel == g.channel }
     var canExtract: Bool { canAct && capsuleSelected && state?.phase == .extraction && role == .researcher }
-    init() {
+    init(evidence: EvidenceStore? = nil) {
+        self.evidence = evidence
         relay = peer.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }
         peer.onData = { [weak self] in self?.receive($0) }; peer.onConnection = { [weak self] in self?.connection($0) }
     }
@@ -44,12 +47,13 @@ import WorldCore
         geometry = .demo; root = ContactMath.identity; arSession = nil; arAnchor = nil; captureID = nil
         demoRole = .researcher; localReady = true; remoteReady = true; tracking = true; background = false
         pending = nil; selected = 0; capsuleSelected = false; message = "Осмотрите узел и сообщите символ оператору."
+        if let state { evidence?.recordGame(mission: state.session, kind: .demoStarted, action: "synthetic-table", revision: state.revision, score: state.score) }
     }
     func host(room: RoomCaptureModel) {
         #if targetEnvironment(simulator)
         message = "На симуляторе доступна демонстрация без камеры."; return
         #else
-        guard !room.scanning, !room.processing, let snapshot = room.snapshot, let geometry = ContactRoomDTO(snapshot: snapshot),
+        guard !room.scanning, !room.processing, let snapshot = room.snapshot, let geometry = ContactRoomDTO(snapshot: snapshot, captureID: room.observationCaptureID, capturedAt: room.observationCapturedAt),
               let session = room.contactSession, let generation = room.contactGeneration else {
             message = "Требуется новое сканирование комнаты в этой сессии."; return
         }
@@ -90,6 +94,7 @@ import WorldCore
     func placed(_ anchor: ARAnchor) {
         let values = ContactMath.array(anchor.transform)
         guard canPlace, geometry?.contains(values) == true else { return }
+        if let state { evidence?.recordGame(mission: state.session, kind: .placement, action: "virtual-capsule", revision: state.revision) }
         arAnchor = anchor; root = values; sendPlacement(); message = "Капсула закреплена. Коснитесь узла для осмотра."
     }
     func anchorUpdated(_ values: [Float]) {
@@ -112,10 +117,12 @@ import WorldCore
         guard var next = mission else { return }
         do {
             let mistakes = next.state.mistakes; try next.apply(command, authorizedRole: authority); mission = next
+            evidence?.recordGame(mission: next.state.session, kind: .contactCommand, action: command.action.evidenceName, revision: next.state.revision, score: next.state.score)
             message = next.state.mistakes > mistakes ? "Неверный канал: −10 очков. Выберите другой; миссия продолжается." : "Действие принято."
             if mode == .host { var p = ContactPacket(kind: .state, state: next.state); p.state = next.state; p.commandID = command.id; send(p) }
         } catch {
             let reason = (error as? ContactError) ?? .prerequisite
+            evidence?.recordGame(mission: next.state.session, kind: .rejectedCommand, action: command.action.evidenceName, revision: next.state.revision, score: next.state.score)
             message = reason == .stale ? "Устаревшая команда. Состояние обновлено; повторите действие." : "Действие отклонено: проверьте роль, осмотр, питание и канал."
             if mode == .host { var p = ContactPacket(kind: .rejected, state: next.state); p.state = next.state; p.commandID = command.id; p.error = reason; send(p) }
         }
@@ -133,12 +140,20 @@ import WorldCore
     private func beat() { guard let s = state else { return }; var p = ContactPacket(kind: .beat, state: s); p.ready = localReady && !background && (mode != .host || tracking); send(p) }
     private func send(_ p: ContactPacket) {
         guard mode != .demo, peer.connected else { return }
-        guard let data = try? JSONEncoder().encode(p), data.count <= 256 * 1024, peer.send(data) else { localReady = false; message = "Пакет не отправлен. Переподключитесь."; return }
+        guard let data = try? JSONEncoder().encode(p), data.count <= 256 * 1024 else { localReady = false; return }
+        let accepted = peer.send(data)
+        evidence?.recordTelemetry(.network(bytes: data.count, outbound: true, accepted: accepted))
+        if !accepted { localReady = false; message = "Пакет не отправлен. Переподключитесь." }
     }
     private func receive(_ data: Data) {
-        guard let p = try? ContactPacket.decode(data) else { pause(); peer.stop(); message = "Несовместимый или повреждённый пакет."; return }
+        guard let p = try? ContactPacket.decode(data) else {
+            if !data.isEmpty && data.count <= 262144 { evidence?.recordTelemetry(.network(bytes: data.count, outbound: false, accepted: false)) }
+            pause(); peer.stop(); message = "Несовместимый или повреждённый пакет."; return
+        }
+        evidence?.recordTelemetry(.network(bytes: data.count, outbound: false, accepted: true))
         if mode == .guest, p.kind == .welcome, let s = p.state, let room = p.room {
             guard p.root.map({ room.contains($0) }) ?? true else { peer.stop(); return }
+            if let captureID = room.captureID { evidence?.recordRoom(id: captureID, date: room.capturedAt, elements: room.surfaces.count, origin: .peerReport) }
             received = s; geometry = room; root = p.root; pending = nil; localReady = false; remoteReady = false; lastSeen = Date()
             message = "Получена оценка комнаты. Прочитайте руководство и нажмите «Продолжить»."; return
         }
@@ -153,6 +168,7 @@ import WorldCore
         if p.kind == .placement, p.revision == s.revision, let root = p.root, geometry?.contains(root) == true { self.root = root; return }
         guard p.kind == .state || p.kind == .rejected, let next = p.state, next.revision >= s.revision else { return }
         received = next
+        evidence?.recordGame(mission: next.session, kind: .peerState, action: p.kind.rawValue, revision: next.revision, score: next.score)
         if pending?.id == p.commandID { pending = nil }
         if p.kind == .rejected { message = p.error == .stale ? "Устаревшая команда отклонена. Состояние синхронизировано; повторите действие." : "Команда отклонена. Состояние синхронизировано." }
         else { message = next.mistakes > s.mistakes ? "Неверный канал: −10 очков. Можно исправить." : "Состояние обновлено." }

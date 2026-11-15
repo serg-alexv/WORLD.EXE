@@ -19,6 +19,8 @@ final class GameStore: ObservableObject {
     @Published var message = "Recover three signal relics, then return to the landing pad."
     @Published var moving = false
     private(set) var lastRoute: [GridPoint] = []
+    private let evidence: EvidenceStore?
+    private let evidenceMission = UUID()
     private let defaults: UserDefaults?
     private let key = "worldexe.mission.v1"
     private var cachedStart: GridPoint?
@@ -26,7 +28,8 @@ final class GameStore: ObservableObject {
     private var cachedRoute: [GridPoint]?
 
 
-    init(persist: Bool = true) {
+    init(persist: Bool = true, evidence: EvidenceStore? = nil) {
+        self.evidence = evidence
         defaults = persist ? .standard : nil
         guard let data = defaults?.data(forKey: key) else { return }
         do {
@@ -126,6 +129,7 @@ final class GameStore: ObservableObject {
         save()
     }
     private func save() {
+        evidence?.recordGame(mission: evidenceMission, kind: .trainingCommand, action: mission.phase.rawValue)
         do { defaults?.set(try mission.compactData(), forKey: key) }
         catch { report(error) }
     }

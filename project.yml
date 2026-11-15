@@ -49,6 +49,9 @@ targets:
       - path: App
     dependencies:
       - package: WorldCore
+        product: WorldCore
+      - package: WorldCore
+        product: EvidenceCore
       - package: LocalLlama
     settings:
       base:
