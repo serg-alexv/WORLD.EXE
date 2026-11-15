@@ -8,7 +8,7 @@
   ],
   "format": 1,
   "source_branch": "fix/contact-release-identity",
-  "source_head": "903371772ae209e1b14adbb91fc6b33fb89e4aea",
+  "source_head": "bbd5577383df322fd69d1d8d09f3ca350686bfb3",
   "status": "source recovery snapshot, not a validated build",
   "workspace": "contact-release"
 }
