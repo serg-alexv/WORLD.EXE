@@ -109,6 +109,10 @@ public enum SiegeVoice {
         case .endTurn: return .endTurn
         }
     }
+    public static func rankingEvent(hasEntries: Bool, wasCleared: Bool) -> SiegeVoiceEvent {
+        hasEntries ? .rankingSaved : (wasCleared ? .rankingCleared : .rankingEmpty)
+    }
+
     /// Only fictional/public reducer fields. No geometry, sensor values, user identity or hidden seed.
     public static func prompt(mission: SignalSiege, tone: SiegeHumor) -> String {
         """

@@ -89,4 +89,11 @@ final class SiegeVoiceTests: XCTestCase {
         XCTAssertTrue(SiegeVoice.line(.rankingSaved, tone: .off).contains("локальный"))
         XCTAssertTrue(SiegeVoice.line(.rankingSaved, tone: .sarcastic).contains("Галактика пока не уведомлена"))
     }
+    func testRankingQuipUsesActualCurrentBoardIncludingRestoredEntries() {
+        XCTAssertEqual(SiegeVoice.rankingEvent(hasEntries: true, wasCleared: false), .rankingSaved)
+        XCTAssertEqual(SiegeVoice.rankingEvent(hasEntries: false, wasCleared: false), .rankingEmpty)
+        XCTAssertEqual(SiegeVoice.rankingEvent(hasEntries: false, wasCleared: true), .rankingCleared)
+        XCTAssertEqual(SiegeVoice.rankingEvent(hasEntries: true, wasCleared: true), .rankingSaved)
+    }
+
 }
