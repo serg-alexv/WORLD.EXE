@@ -32,19 +32,10 @@ xcodebuild -project PersonalClient/PersonalFeed.xcodeproj -scheme PersonalFeed -
   CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=398XACWZ7G build-for-testing 2>&1 | tee "$OUT/simulator-build.log"
 SIM_APP="$OUT/DerivedData/Build/Products/Debug-iphonesimulator/PersonalFeed.app"
 codesign --verify --deep --strict "$SIM_APP"
-codesign -d --entitlements - "$SIM_APP" > "$OUT/simulator-entitlements.plist" 2> "$OUT/simulator-signature.log"
-python3 - "$OUT/simulator-entitlements.plist" <<'PY'
-import plistlib,sys
-p=plistlib.load(open(sys.argv[1],'rb'))
-identity=p.get('application-identifier') or p.get('com.apple.application-identifier')
-if identity != '398XACWZ7G.org.worldexe.personalfeed':
-    raise SystemExit('Simulator application identity missing; real Keychain tests require normal local signing')
-if p.get('keychain-access-groups') != ['398XACWZ7G.org.worldexe.personalfeed']:
-    raise SystemExit('Unexpected default keychain group in simulator')
-if p.get('com.apple.security.application-groups'):
-    raise SystemExit('Unexpected shared app group in personal-client simulator')
-print('Simulator ad-hoc application identity verified; no Apple private signing key used.')
-PY
+# Device signature entitlements and Simulator runtime entitlements are different.
+# Preserve the code signature's XML, then verify the actual Mach-O simulated identity.
+codesign -d --entitlements - --xml "$SIM_APP" > "$OUT/simulator-entitlements.plist" 2> "$OUT/simulator-signature.log"
+python3 scripts/verify_feed_simulator.py "$SIM_APP/PersonalFeed" --receipt "$OUT/simulator-identity.json"
 }
 ui() {
 xcrun simctl list devices available --json > "$OUT/simulators.json"
