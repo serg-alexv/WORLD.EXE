@@ -6,6 +6,7 @@ struct HomeView: View {
     @StateObject private var game: GameStore
     @StateObject private var room: RoomCaptureModel
     @StateObject private var brain: OnDeviceBrain
+    @StateObject private var siege: SignalSiegeStore
     @Environment(\.scenePhase) private var scenePhase
     @State private var showEvidence = false
     init() {
@@ -15,9 +16,11 @@ struct HomeView: View {
         _game = StateObject(wrappedValue: GameStore(persist: persist, evidence: journal))
         _room = StateObject(wrappedValue: RoomCaptureModel(evidence: journal))
         _brain = StateObject(wrappedValue: OnDeviceBrain(evidence: journal))
+        _siege = StateObject(wrappedValue: SignalSiegeStore(persist: persist, evidence: journal))
     }
     @State private var showContact = false
     @State private var showBrain = false
+    @State private var showSiege = false
     @State private var mode = 0
     @State private var help = false
     var body: some View {
@@ -48,7 +51,7 @@ struct HomeView: View {
                 Text("Room scan").tag(2)
             }
             .pickerStyle(.segmented).accessibilityIdentifier("modePicker")
-            if mode == 0 { TrainingScreen(game: game) }
+            if mode == 0 { TrainingScreen(game: game, openSiege: { showSiege = true }) }
             else if mode == 1 { LiDARView(evidence: evidence) }
             else { RoomCaptureScreen(model: room) }
         }
@@ -58,6 +61,7 @@ struct HomeView: View {
         .sheet(isPresented: $help) { InstructionsScreen() }
         .sheet(isPresented: $showBrain) { BrainScreen(brain: brain) }
         .fullScreenCover(isPresented: $showContact) { ContactScreen(room: room, brain: brain, evidence: evidence) }
+        .fullScreenCover(isPresented: $showSiege) { SignalSiegeScreen(store: siege, brain: brain) }
         .sheet(isPresented: $showEvidence) { EvidenceScreen(store: evidence) }
         .onChange(of: scenePhase) { _, phase in if phase != .active { evidence.flush() } }
     }
@@ -65,10 +69,21 @@ struct HomeView: View {
 
 struct TrainingScreen: View {
     @ObservedObject var game: GameStore
+    let openSiege: () -> Void
     @State private var zoom = 1.0
     @StateObject private var tactical = TacticalNarrator()
     var body: some View {
         VStack(spacing: 9) {
+            Button(action: openSiege) {
+                HStack {
+                    Image(systemName: "shield.checkered")
+                    Text("Signal Siege").bold()
+                    Spacer()
+                    Text("AP · COVER · LOCAL TOP 10").font(.system(size: 9, design: .monospaced))
+                    Image(systemName: "chevron.right")
+                }.padding(10).background(Palette.panel, in: RoundedRectangle(cornerRadius: 10))
+            }.buttonStyle(.plain).foregroundStyle(Palette.teal)
+                .accessibilityLabel("Signal Siege tactical training challenge").accessibilityIdentifier("siege.open")
             HStack {
                 Label("SIMULATED TRAINING SECTOR", systemImage: "sparkles")
                     .font(.system(size: 10, weight: .bold, design: .monospaced))
@@ -183,6 +198,8 @@ struct InstructionsScreen: View {
                     Text("3. Each tile costs 1 AP. Recover costs 1 AP on a relic tile. End Turn restores 6 AP, so you can always continue. There are no enemies or turn deadlines in this slice.")
                     Text("4. Recover all three relics, return to the landing pad at the near edge, then Extract for 1 AP. Replay or Reset starts a fresh expedition.")
                     Text("Progress saves after every completed command. If you leave during movement, the destination is already saved. Reset affects training only.")
+                    Text("Signal Siege").font(.headline).foregroundStyle(Palette.teal)
+                    Text("Open Signal Siege from Training for a deterministic tactical challenge with action points, cover, a patrol and a predicted hazard. Secure the relay and extract before health or time runs out. Victories have local, offline top-10 rankings separated by seed and difficulty. The fictional NPC uses a script until you load a GGUF and explicitly ask for an interpretation.")
                     Text("Sensor modes").font(.headline).foregroundStyle(Palette.teal)
                     Text("LiDAR shows a live estimated mesh on supported hardware. Room scan uses RoomPlan to process an estimated room and offers JSON / USDZ sharing. They are separate from training and never generate mission terrain.")
                     Text("Start grants camera access only when requested. Stop or switch modes to pause sensors. Completed room geometry remains available in an orthographic view, with its original meter dimensions and transforms. Reset scan deletes that saved capture.")
