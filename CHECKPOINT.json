@@ -1,0 +1,14 @@
+{
+  "excludes": [
+    "credentials",
+    "model weights",
+    "binaries",
+    "build output",
+    "private ops files"
+  ],
+  "format": 1,
+  "source_branch": "feature/contact-testbed",
+  "source_head": "33ea2f131c0ba62af904ed02826ff42c30d6b3ff",
+  "status": "source recovery snapshot, not a validated build",
+  "workspace": "contact-testbed"
+}
