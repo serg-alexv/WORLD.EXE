@@ -24,7 +24,7 @@ enum ContactArt {
         let shell = SCNCylinder(radius: 0.055, height: 0.13); shell.materials = [material(teal)]
         let body = SCNNode(geometry: shell); body.position.y = 0.075; capsule.addChildNode(body)
         let dome = SCNSphere(radius: 0.055); dome.segmentCount = 16; dome.materials = [material(amber)]
-        let top = SCNNode(geometry: dome); top.position.y = 0.14; capsule.addChildNode(top); group.addChildNode(capsule)
+        let top = SCNNode(geometry: dome); top.name = "capsuleLid"; top.position.y = 0.14; capsule.addChildNode(top); group.addChildNode(capsule)
         for i in 0..<3 {
             let g = SCNCylinder(radius: 0.04, height: 0.03); g.radialSegmentCount = 16; g.materials = [material(.darkGray)]
             let n = SCNNode(geometry: g); n.name = "node\(i)"; n.simdPosition = ContactMath.offsets[i] + SIMD3(0,0.02,0)
@@ -37,6 +37,15 @@ enum ContactArt {
         return group
     }
     static func update(_ root: SCNNode, state: ContactPublicState, glyphs: [ContactGlyph?]? = nil) {
+        if let lid = root.childNode(withName: "capsuleLid", recursively: true) {
+            let height: Float = state.phase == .active ? 0.14 : 0.23
+            if abs(lid.position.y - height) > 0.001 {
+                SCNTransaction.begin(); SCNTransaction.animationDuration = 0.35
+                lid.position.y = height
+                lid.geometry?.firstMaterial?.diffuse.contents = state.phase == .complete ? UIColor.white : teal
+                SCNTransaction.commit()
+            }
+        }
         for i in 0..<3 {
             guard let n = root.childNode(withName: "node\(i)", recursively: false) else { continue }
             let color: UIColor = state.isStable(i) ? teal : state.poweredNode == i ? amber : .darkGray

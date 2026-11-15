@@ -52,9 +52,8 @@ int we_llama_load(we_llama *e, const char *path, int allow_gpu,
         std::call_once(backend_once, [] { llama_log_set(quiet_log, nullptr); llama_backend_init(); });
         if (e->cancelled.load()) return fail(error, capacity, "Cancelled.", -2);
         auto mp = llama_model_default_params();
-        mp.n_gpu_layers = allow_gpu ? 99 : 0;
-        mp.use_mmap = true;
-        mp.use_mlock = false;
+        mp.n_gpu_layers = allow_gpu ? -1 : 0;
+        mp.load_mode = LLAMA_LOAD_MODE_MMAP;
         mp.progress_callback = loading_progress;
         mp.progress_callback_user_data = e;
         e->model = llama_model_load_from_file(path, mp);
@@ -74,6 +73,7 @@ int we_llama_load(we_llama *e, const char *path, int allow_gpu,
         cp.n_threads = 2;
         cp.n_threads_batch = 2;
         cp.offload_kqv = allow_gpu != 0;
+        cp.op_offload = allow_gpu != 0;
         cp.abort_callback = abort_decode;
         cp.abort_callback_data = e;
         e->context = llama_init_from_model(e->model, cp);

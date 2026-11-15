@@ -54,6 +54,9 @@ struct ContactARView: UIViewRepresentable {
         private let frameLock = NSLock()
         private var lastFrameTime: TimeInterval = -1
         private var lastTrackingText = ""
+        private let meshLock = NSLock()
+        private var pendingMeshes: Set<UUID> = []
+        private var knownMeshes: Set<UUID> = []
         func run(_ active: Bool) {
             guard let view, running != active else { return }; running = active
             if !active { view.session.pause(); normal = false; tracked?(false,"AR на паузе"); return }
@@ -131,9 +134,25 @@ struct ContactARView: UIViewRepresentable {
         func session(_ session: ARSession, didUpdate anchors: [ARAnchor]) { copy(anchors) }
         private func copy(_ anchors: [ARAnchor]) {
             for anchor in anchors {
+                let isMesh = anchor is ARMeshAnchor
+                if isMesh {
+                    meshLock.lock()
+                    let allowed = !pendingMeshes.contains(anchor.identifier) && (knownMeshes.contains(anchor.identifier) || knownMeshes.count < 64)
+                    if allowed { pendingMeshes.insert(anchor.identifier); knownMeshes.insert(anchor.identifier) }
+                    meshLock.unlock()
+                    if !allowed { continue }
+                }
                 let mesh = (anchor as? ARMeshAnchor).flatMap(Self.mesh)
                 DispatchQueue.main.async { [weak self] in
-                    guard let self, self.live, self.running, let view = self.view else { return }
+                    guard let self else { return }
+                    defer {
+                        if isMesh {
+                            self.meshLock.lock(); self.pendingMeshes.remove(anchor.identifier)
+                            if mesh == nil { self.knownMeshes.remove(anchor.identifier) }
+                            self.meshLock.unlock()
+                        }
+                    }
+                    guard self.live, self.running, let view = self.view else { return }
                     if anchor.identifier == self.rootAnchor?.identifier {
                         self.rootAnchor = anchor; self.game.simdTransform = anchor.transform
                         let a = ContactMath.array(anchor.transform)
@@ -170,6 +189,7 @@ struct ContactARView: UIViewRepresentable {
             DispatchQueue.main.async { [weak self] in
                 guard let self, self.live else { return }
                 for a in anchors {
+                    self.meshLock.lock(); self.knownMeshes.remove(a.identifier); self.meshLock.unlock()
                     self.meshNodes.removeValue(forKey: a.identifier)?.removeFromParentNode()
                     if a.identifier == self.rootAnchor?.identifier { self.rootLost = true; self.normal = false; self.tracked?(false,"Якорь утрачен. Начните новую миссию.") }
                 }
