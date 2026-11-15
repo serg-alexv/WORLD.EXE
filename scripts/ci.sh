@@ -13,6 +13,13 @@ core() {
 simulator() {
   python3 scripts/GenerateAppIcon.py
   xcodegen generate
+  xcodebuild -project WorldEXE.xcodeproj -scheme WorldEXE -configuration Debug \
+    -destination 'generic/platform=iOS Simulator' \
+    -derivedDataPath build/DerivedData -resultBundlePath build/BuildForTesting.xcresult \
+    CODE_SIGNING_ALLOWED=NO build-for-testing 2>&1 | tee build/simulator-build.log
+  touch build/simulator-build.ok
+}
+ui() {
   xcrun simctl list devices available --json > build/simulators.json
   python3 - <<'PY'
 import json,re,subprocess
@@ -34,13 +41,6 @@ print('Selected simulator:',d['name'],runtime,flush=True)
 if d['state']!='Booted': subprocess.run(['xcrun','simctl','boot',d['udid']],check=True,timeout=60)
 subprocess.run(['xcrun','simctl','bootstatus',d['udid'],'-b'],check=True,timeout=240)
 PY
-  xcodebuild -project WorldEXE.xcodeproj -scheme WorldEXE -configuration Debug \
-    -destination "platform=iOS Simulator,id=$(cat build/simulator-id.txt)" \
-    -derivedDataPath build/DerivedData -resultBundlePath build/BuildForTesting.xcresult \
-    CODE_SIGNING_ALLOWED=NO build-for-testing 2>&1 | tee build/simulator-build.log
-  touch build/simulator-build.ok
-}
-ui() {
   local id; id=$(cat build/simulator-id.txt)
   xcodebuild -project WorldEXE.xcodeproj -scheme WorldEXE -configuration Debug \
     -destination "platform=iOS Simulator,id=$id" -derivedDataPath build/DerivedData \

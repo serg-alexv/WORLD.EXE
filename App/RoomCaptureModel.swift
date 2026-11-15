@@ -194,6 +194,7 @@ final class RoomCaptureModel: NSObject, ObservableObject {
 }
 
 // Each view delegate carries its immutable capture token; stale results cannot replace a newer scan.
+@objc(WorldEXERoomCaptureRelay)
 private final class RoomCaptureRelay: NSObject, RoomCaptureViewDelegate {
     weak var owner: RoomCaptureModel?
     let token: UUID
