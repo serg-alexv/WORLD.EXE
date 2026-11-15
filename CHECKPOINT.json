@@ -1,0 +1,14 @@
+{
+  "excludes": [
+    "credentials",
+    "model weights",
+    "binaries",
+    "build output",
+    "private ops files"
+  ],
+  "format": 1,
+  "source_branch": "feature/npc-leaderboards",
+  "source_head": "9dcdb6463e1f23ecdfe5e346956fb70a326d5440",
+  "status": "source recovery snapshot, not a validated build",
+  "workspace": "npc-leaderboards"
+}
