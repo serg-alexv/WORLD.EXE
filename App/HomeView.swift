@@ -22,11 +22,12 @@ struct HomeView: View {
                     .accessibilityLabel("Instructions").accessibilityIdentifier("instructions")
             }
             HStack {
-                Button("КОНТАКТ · вдвоём") { showContact = true }
+                Button("КОНТАКТ · вдвоём") { mode = 0; showContact = true }
                     .buttonStyle(.borderedProminent).accessibilityIdentifier("contact.open")
                     .disabled(room.scanning || room.processing)
-                Button("GGUF · интеллект") { showBrain = true }
+                Button("GGUF · интеллект") { mode = 0; showBrain = true }
                     .buttonStyle(.bordered).accessibilityIdentifier("openGGUF")
+                    .disabled(room.scanning || room.processing)
             }.font(.caption.bold()).frame(minHeight: 44)
             Picker("Expedition mode", selection: $mode) {
                 Text("Training").tag(0)
