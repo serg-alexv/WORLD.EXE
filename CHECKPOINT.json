@@ -1,0 +1,14 @@
+{
+  "excludes": [
+    "credentials",
+    "model weights",
+    "binaries",
+    "build output",
+    "private ops files"
+  ],
+  "format": 1,
+  "source_branch": "release/fusion-demo",
+  "source_head": "6b21e1a78677c1898fc34c9deb4eebc3a5f386b2",
+  "status": "source recovery snapshot, not a validated build",
+  "workspace": "fusion"
+}
