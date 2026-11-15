@@ -16,6 +16,11 @@ class FusionBoundaries(unittest.TestCase):
             text=source.read_text(encoding='utf-8')
             for name in ['import WorldCore','import EvidenceCore','import LocalLlama','import ARKit','import RoomPlan']:
                 self.assertNotIn(name,text,str(source))
+    def test_static_feature_products_are_linked_by_the_host(self):
+        text=(ROOT/'project.yml').read_text(encoding='utf-8')
+        host=text.split('  WorldEXE:\n',1)[1].split('  PersonalFeedFeature:\n',1)[0]
+        for product in ['FeedDomain','FeedAdapters','FeedStore']:
+            self.assertIn('product: '+product,host)
     def test_host_only_imports_feature_at_workspace_boundary(self):
         for source in (ROOT/'App').rglob('*.swift'):
             text=source.read_text(encoding='utf-8')
