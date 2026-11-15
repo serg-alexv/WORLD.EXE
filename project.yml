@@ -57,6 +57,13 @@ targets:
         product: EvidenceCore
       - package: LocalLlama
       - target: PersonalFeedFeature
+      # Static feature dependencies must also be linked into the executable.
+      - package: PersonalFeedCore
+        product: FeedDomain
+      - package: PersonalFeedCore
+        product: FeedAdapters
+      - package: PersonalFeedCore
+        product: FeedStore
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: org.worldexe.prototype
