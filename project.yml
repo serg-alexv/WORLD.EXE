@@ -105,6 +105,8 @@ targets:
     dependencies:
       - target: WorldEXE
       - target: PersonalFeedFeature
+        link: false
+        embed: false
       - package: PersonalFeedCore
         product: FeedDomain
       - package: PersonalFeedCore

@@ -55,6 +55,22 @@ class FusionBoundaries(unittest.TestCase):
         self.assertIn('NSFaceIDUsageDescription',project)
         self.assertIn('- name: FusionFeedTests',project)
         self.assertIn('sources: [PersonalClient/AppTests]',project)
+    def test_contact_acceptance_uses_actual_hub(self):
+        test=(ROOT/'UITests/ContactUITests.swift').read_text(encoding='utf-8')
+        self.assertIn('"-fusion-ui-testing"',test)
+        self.assertIn('app.buttons["fusion.game"].tap()',test)
+        self.assertIn('tap("contact.extract")',test)
+    def test_hosted_feed_tests_do_not_link_a_second_class_copy(self):
+        project=(ROOT/'project.yml').read_text(encoding='utf-8')
+        target=project.split('  FusionFeedTests:',1)[1].split('  WorldEXEUnitTests:',1)[0]
+        self.assertIn('- target: PersonalFeedFeature\n        link: false\n        embed: false',target)
+    def test_native_gguf_acceptance_keeps_verification_and_real_output(self):
+        app=(ROOT/'App/Intelligence/OnDeviceBrain.swift').read_text(encoding='utf-8')
+        self.assertIn('ModelFiles.inspect(file, expected: model.sha256)',app)
+        self.assertIn('SHA-256 подтверждён. Инициализация llama.cpp',app)
+        test=(ROOT/'UITests/GGUFUITests.swift').read_text(encoding='utf-8')
+        self.assertIn('No Apple/rules/cloud fallback is accepted',test)
+        self.assertIn('tap("ggufUnload"',test)
     def test_known_busy_only_is_retried(self):
         calls=[];sleeps=[]
         results=[SimpleNamespace(returncode=1,stdout='',stderr='FBSOpenApplicationServiceErrorDomain Busy installing or uninstalling'),SimpleNamespace(returncode=0,stdout='launched',stderr='')]
