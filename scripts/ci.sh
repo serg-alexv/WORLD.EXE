@@ -8,17 +8,27 @@ core() {
   swift --version | tee -a build/toolchain.txt
   git rev-parse HEAD > build/commit.txt
   swift test --package-path WorldCore 2>&1 | tee build/core-tests.log
+  swift test --package-path PersonalClient/Core 2>&1 | tee build/feed-core-tests.log
+  swift test --package-path PersonalClient/Core -c release -Xswiftc -Osize 2>&1 | tee build/feed-core-release-tests.log
   touch build/core.ok
 }
 simulator() {
   bash scripts/prepare_llama.sh
   python3 scripts/GenerateAppIcon.py
+  python3 - <<'IDENTITY'
+import plistlib
+from pathlib import Path
+Path('build/FusionSimulator.entitlements').write_bytes(plistlib.dumps({
+'application-identifier':'398XACWZ7G.org.worldexe.prototype',
+'keychain-access-groups':['398XACWZ7G.org.worldexe.prototype'],
+'com.apple.developer.team-identifier':'398XACWZ7G','get-task-allow':True}))
+IDENTITY
   xcodegen generate
   xcodebuild -project WorldEXE.xcodeproj -scheme WorldEXE -configuration Debug \
     -destination 'generic/platform=iOS Simulator' \
     -derivedDataPath build/DerivedData -resultBundlePath build/BuildForTesting.xcresult \
-    CODE_SIGNING_ALLOWED=NO build-for-testing 2>&1 | tee build/simulator-build.log
-  python3 scripts/verify_app_identity.py build/DerivedData/Build/Products/Debug-iphonesimulator/WorldEXE.app --version 0.2.1 --build 1
+    CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=398XACWZ7G build-for-testing 2>&1 | tee build/simulator-build.log
+  python3 scripts/verify_app_identity.py build/DerivedData/Build/Products/Debug-iphonesimulator/WorldEXE.app --version 0.4.0 --build 1
   touch build/simulator-build.ok
 }
 ui() {
@@ -65,12 +75,11 @@ MODEL_FIXTURE
     -destination "platform=iOS Simulator,id=$id" -derivedDataPath build/DerivedData \
     -resultBundlePath build/TestResults.xcresult -parallel-testing-enabled NO \
     -test-timeouts-enabled YES -default-test-execution-time-allowance 240 \
-    -maximum-test-execution-time-allowance 300 CODE_SIGNING_ALLOWED=NO \
+    -maximum-test-execution-time-allowance 300 CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=398XACWZ7G \
     test-without-building 2>&1 | tee build/ios-tests.log
   touch build/ui.ok
-  xcrun simctl install "$id" build/DerivedData/Build/Products/Debug-iphonesimulator/WorldEXE.app
   xcrun simctl terminate "$id" org.worldexe.prototype 2>/dev/null || true
-  xcrun simctl launch "$id" org.worldexe.prototype -ui-testing
+  python3 scripts/fusion_simulator_launch.py "$id" org.worldexe.prototype -ui-testing
   sleep 3
   xcrun simctl io "$id" screenshot build/screenshots/training-launch.png
   xcrun xcresulttool export attachments --path build/TestResults.xcresult --output-path build/screenshots/test-attachments || echo 'Attachment export unavailable; original xcresult is retained.'
@@ -80,7 +89,7 @@ device() {
     -destination 'generic/platform=iOS' -derivedDataPath build/DeviceData \
     CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY='' \
     build 2>&1 | tee build/device-build.log
-  python3 scripts/verify_app_identity.py build/DeviceData/Build/Products/Release-iphoneos/WorldEXE.app --version 0.2.1 --build 1
+  python3 scripts/verify_app_identity.py build/DeviceData/Build/Products/Release-iphoneos/WorldEXE.app --version 0.4.0 --build 1
   touch build/device.ok
   ditto -c -k --sequesterRsrc --keepParent build/DerivedData/Build/Products/Debug-iphonesimulator/WorldEXE.app build/WORLD.EXE-Simulator.zip
   ditto -c -k --sequesterRsrc --keepParent build/DeviceData/Build/Products/Release-iphoneos/WorldEXE.app build/WORLD.EXE-UNSIGNED-device.zip

@@ -108,7 +108,7 @@ final class OnDeviceBrain: ObservableObject {
                 throw BrainFailure(message: "Телефон нагрет. Дайте ему остыть перед загрузкой модели.")
             }
             let file = ModelFiles.url(model)
-            let verification = Task.detached(priority: .utility) { _ = try ModelFiles.inspect(file, expected: model.sha256) }
+            let verification = Task.detached(priority: .userInitiated) { _ = try ModelFiles.inspect(file, expected: model.sha256) }
             verifyTask = verification; try await verification.value
             guard !cancelled else { throw CancellationError() }
             #if targetEnvironment(simulator)
@@ -116,6 +116,7 @@ final class OnDeviceBrain: ObservableObject {
             #else
             let metal = useMetal
             #endif
+            status = "SHA-256 подтверждён. Инициализация llama.cpp…"
             let count = try await runtime.load(file.path, metal: metal)
             guard !cancelled else { await runtime.unload(); throw CancellationError() }
             isLoaded = true

@@ -27,6 +27,9 @@ final class GGUFUITests: XCTestCase {
         add(screenshot)
     }
     func testRealGGUFLoadsAnswersAndUnloadsThroughAppControls() {
+        // A functional acceptance budget for a cold shared Simulator, not an iPhone latency claim.
+        // Integrity verification, actual native generation and unload are still mandatory.
+        executionTimeAllowance = 300
         let app = XCUIApplication()
         app.launchArguments = ["-ui-testing", "-gguf-ci"]
         app.launch()
@@ -35,7 +38,8 @@ final class GGUFUITests: XCTestCase {
         XCTAssertFalse(app.staticTexts["ggufNoModel"].exists, "CI must provide the actual pinned GGUF, not a fake model")
         tap("ggufLoad", in: app)
         let loaded = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: app.buttons["ggufGenerate"])
-        XCTAssertEqual(XCTWaiter.wait(for: [loaded], timeout: 90), .completed, "Native GGUF loading must succeed")
+        let loadResult = XCTWaiter.wait(for: [loaded], timeout: 180)
+        XCTAssertEqual(loadResult, .completed, "Native GGUF loading must succeed. Actual stage: \(app.staticTexts["ggufStatus"].label)")
         XCTAssertTrue(app.staticTexts["ggufBackend"].label.contains("llama.cpp"))
         tap("ggufGenerate", in: app)
         let completed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS %@", "Ответ получен на этом устройстве через llama.cpp"), object: app.staticTexts["ggufStatus"])

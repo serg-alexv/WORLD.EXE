@@ -3,7 +3,11 @@ import XCTest
 final class ContactUITests: XCTestCase {
     private var app: XCUIApplication!
     override func setUpWithError() throws {
-        continueAfterFailure = false; app = XCUIApplication(); app.launchArguments += ["-contact-hot-seat"]; app.launch()
+        continueAfterFailure = false; app = XCUIApplication()
+        app.launchArguments = ["-ui-testing", "-fusion-ui-testing", "-contact-hot-seat"]
+        app.launch()
+        XCTAssertTrue(app.buttons["fusion.game"].waitForExistence(timeout: 12))
+        app.buttons["fusion.game"].tap()
     }
     private func tap(_ id: String, file: StaticString = #filePath, line: UInt = #line) {
         let button = app.buttons[id]
@@ -13,7 +17,7 @@ final class ContactUITests: XCTestCase {
         XCTFail("Control unavailable: \(id)", file: file, line: line)
     }
     func testHotSeatCompletesThroughRealControls() throws {
-        // Supervisor's Home integration gives the CONTACT entry this identifier.
+        // Navigate through the actual Fusion launcher, then complete every CONTACT action.
         tap("contact.open"); tap("contact.demo")
         XCTAssertTrue(app.staticTexts["contact.demo.banner"].exists)
         for n in 0..<3 {

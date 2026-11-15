@@ -3,10 +3,20 @@ import FeedDomain
 import FeedAdapters
 import FeedStore
 
-struct FeedRootView: View {
+public enum FeedPresentation: Sendable { case standalone, combined }
+private struct FeedPresentationKey: EnvironmentKey { static let defaultValue: FeedPresentation = .standalone }
+private extension EnvironmentValues {
+    var feedPresentation: FeedPresentation {
+        get { self[FeedPresentationKey.self] }
+        set { self[FeedPresentationKey.self] = newValue }
+    }
+}
+public struct FeedRootView: View {
+    private let presentation: FeedPresentation
+    public init(presentation: FeedPresentation = .standalone) { self.presentation = presentation }
     @StateObject private var session = FeedSession()
     @Environment(\.scenePhase) private var scenePhase
-    var body: some View {
+    public var body: some View {
         ZStack {
             Group {
                 if session.isOpen { FeedWorkspace(session: session).id(session.epoch) }
@@ -18,6 +28,8 @@ struct FeedRootView: View {
             }
         }
         .tint(.indigo)
+        .environment(\.feedPresentation, presentation)
+        .onDisappear { session.lock() }
         .onChange(of: scenePhase) { _, phase in if phase == .background { session.lock() } }
     }
     private var welcome: some View {
@@ -26,7 +38,7 @@ struct FeedRootView: View {
             Image(systemName: "rectangle.stack.badge.person.crop").font(.system(size: 58)).foregroundStyle(.indigo)
             Text("Личная лента").font(.largeTitle.bold())
             Text("Ваши записи. Их источники. Ваше устройство.").font(.title3)
-            Text("Отдельный клиент: без игры, рекламной аналитики и автоматической отправки переписок в AI.")
+            Text(presentation == .standalone ? "Отдельный клиент: без игры, рекламной аналитики и автоматической отправки переписок в AI." : "Зашифрованная личная лента внутри WORLD.EXE. Игра и NPC не получают её записи. Это разделение модулей, не отдельная песочница iOS.")
                 .foregroundStyle(.secondary)
             Button { session.startDemo() } label: {
                 Label("Открыть демонстрацию", systemImage: "play.rectangle").frame(maxWidth: .infinity)
@@ -209,13 +221,14 @@ private struct AddSourceView: View {
     }
 }
 private struct PrivacyView: View {
+    @Environment(\.feedPresentation) private var presentation
     @ObservedObject var session: FeedSession
     @State private var confirmErase = false
     var body: some View {
         List {
             Section("Границы") {
-                Label("Отдельное приложение и контейнер", systemImage: "square.stack.3d.up")
-                Label("Личные записи не доступны игре и NPC", systemImage: "lock.shield")
+                Label(presentation == .standalone ? "Отдельное приложение и контейнер" : "Отдельный модуль и зашифрованный архив в одном приложении", systemImage: "square.stack.3d.up")
+                Label("Передача личных записей игре и NPC не подключена", systemImage: "lock.shield")
                 Label("Нет облачной синхронизации и контентных логов", systemImage: "icloud.slash")
                 Text("Личный архив шифруется AES-GCM. Ключ хранится в Keychain этого устройства. Файлы используют полную защиту iOS и исключены из резервного копирования.").font(.caption)
                 Text("При переходе в фон клиент блокируется и скрывает содержимое. Это не запрет пользователю делать скриншоты.").font(.caption)

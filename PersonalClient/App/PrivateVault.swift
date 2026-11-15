@@ -4,7 +4,7 @@ import Security
 import FeedDomain
 import FeedStore
 
-/// Standalone app container; no app group, game journal, cloud sync or network access.
+/// Authenticated feature vault; no app group, game journal, cloud sync or network access.
 actor PrivateVault {
     enum VaultFailure: Error, LocalizedError {
         case locked, keyUnavailable, corrupt, keychain(OSStatus)
@@ -21,7 +21,7 @@ actor PrivateVault {
     private let injectedKey: SymmetricKey?
     private let service: String
     init(root: URL? = nil, testKey: SymmetricKey? = nil, keychainTestID: UUID? = nil) {
-        service = "org.worldexe.personalfeed.vault.v1" + (keychainTestID.map { ".test." + $0.uuidString } ?? "")
+        service = (Bundle.main.bundleIdentifier ?? "org.worldexe.personalfeed") + ".private-feed.v1" + (keychainTestID.map { ".test." + $0.uuidString } ?? "")
         self.root = root ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("PrivateFeed", isDirectory: true)
         self.injectedKey = testKey

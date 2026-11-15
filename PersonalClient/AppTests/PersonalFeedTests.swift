@@ -4,7 +4,11 @@ import CryptoKit
 import FeedDomain
 import FeedAdapters
 import FeedStore
+#if canImport(PersonalFeedFeature)
+@testable import PersonalFeedFeature
+#else
 @testable import PersonalFeed
+#endif
 
 final class PersonalFeedTests: XCTestCase {
     private func fixture() throws -> FeedVault {

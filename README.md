@@ -1,4 +1,9 @@
-# WORLD.EXE — CONTACT testbed
+# WORLD.EXE — Fusion demo
+
+**0.4.0 candidate:** one launcher for Training/Signal Siege, CONTACT, spatial sensors, optional local GGUF and the authenticated personal-feed workspace. See [FUSION_DEMO](docs/FUSION_DEMO.md) for the current build boundary and phone acceptance. Actual TestFlight availability is established by the release receipt, not this source heading.
+
+The integrated personal workspace is a separate Swift module and encrypted vault **in the same app process/container**, not an OS sandbox. No private-record route to game, NPC, inference, scores or sensor journals is connected. The independently buildable PersonalFeed app below remains available as a source target; it is not the distribution identity for the combined release. Hornet/Grindr live APIs are not connected.
+
 
 ## Independent product boundaries
 

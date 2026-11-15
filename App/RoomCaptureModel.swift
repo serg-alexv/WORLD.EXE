@@ -119,6 +119,11 @@ final class RoomCaptureModel: NSObject, ObservableObject {
         status = "Capture stopped. RoomPlan is processing the estimated room."
         captureView?.captureSession.stop(pauseARSession: true)
     }
+    func suspendForWorkspaceExit() {
+        dispatchPrecondition(condition: .onQueue(.main))
+        contactSession?.pause(); contactSession = nil; contactGeneration = nil
+        releaseCaptureView(); scanning = false; processing = false; startedUptime = nil
+    }
     func reset() {
         dispatchPrecondition(condition: .onQueue(.main))
         contactSession?.pause(); contactSession = nil; contactGeneration = nil
