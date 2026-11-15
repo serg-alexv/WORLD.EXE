@@ -21,14 +21,21 @@ final class GameStore: ObservableObject {
     private(set) var lastRoute: [GridPoint] = []
     private let defaults: UserDefaults?
     private let key = "worldexe.mission.v1"
+    private var cachedStart: GridPoint?
+    private var cachedGoal: GridPoint?
+    private var cachedRoute: [GridPoint]?
+
 
     init(persist: Bool = true) {
         defaults = persist ? .standard : nil
         guard let data = defaults?.data(forKey: key) else { return }
         do {
-            let saved = try JSONDecoder().decode(Mission.self, from: data)
+            let saved: Mission
+            if data.starts(with: [0x57, 0x45]) { saved = try Mission(compactData: data) }
+            else { saved = try JSONDecoder().decode(Mission.self, from: data) }
             guard saved.isValid else { throw CocoaError(.coderReadCorrupt) }
             mission = saved
+            defaults?.set(try saved.compactData(), forKey: key)
             message = "Local expedition restored."
         } catch {
             defaults?.removeObject(forKey: key)
@@ -38,7 +45,11 @@ final class GameStore: ObservableObject {
     }
     var preview: [GridPoint]? {
         guard let selection else { return nil }
-        return Sector.training.path(from: mission.position, to: selection)
+        if cachedStart != mission.position || cachedGoal != selection {
+            cachedStart = mission.position; cachedGoal = selection
+            cachedRoute = Sector.training.path(from: mission.position, to: selection)
+        }
+        return cachedRoute
     }
     var moveCost: Int { max(0, (preview?.count ?? 1) - 1) }
     var canMove: Bool {
@@ -115,7 +126,7 @@ final class GameStore: ObservableObject {
         save()
     }
     private func save() {
-        do { defaults?.set(try JSONEncoder().encode(mission), forKey: key) }
+        do { defaults?.set(try mission.compactData(), forKey: key) }
         catch { report(error) }
     }
     private func report(_ error: Error) {

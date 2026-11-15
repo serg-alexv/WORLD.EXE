@@ -31,6 +31,11 @@ jobs:
             build/DerivedData/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules
       - name: Core gameplay tests
         run: bash scripts/ci.sh core
+      - name: Size-optimized core tests and kernel/assembly evidence
+        run: |
+          set -euo pipefail
+          swift test --package-path WorldCore -c release -Xswiftc -Osize 2>&1 | tee build/core-release-tests.log
+          bash scripts/benchmark_core.sh
       - name: Compile iOS simulator app and tests
         timeout-minutes: 12
         run: bash scripts/ci.sh simulator
@@ -61,6 +66,10 @@ jobs:
             build/*.md
             build/*.json
             build/*.zip
+            build/core-benchmark/*.log
+            build/core-benchmark/*.txt
+            build/core-benchmark/*.json
+            build/core-benchmark/*.s.gz
             build/screenshots
             build/TestResults.xcresult
             build/BuildForTesting.xcresult

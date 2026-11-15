@@ -123,14 +123,22 @@ struct LiveMeshView: UIViewRepresentable {
             guard mesh.vertices.count <= 50000, mesh.faces.count <= 100000,
                   mesh.faces.indexCountPerPrimitive == 3 else { return }
             let vertices = mesh.vertices
+            // Copy only the referenced vertex range, not the entire backing GPU allocation.
+            guard vertices.count > 0, vertices.stride >= 12, vertices.offset >= 0 else { return }
+            let vertexBytes = (vertices.count - 1) * vertices.stride + 12
+            guard vertexBytes <= vertices.buffer.length,
+                  vertices.offset <= vertices.buffer.length - vertexBytes else { return }
             let source = SCNGeometrySource(
-                data: Data(bytes: vertices.buffer.contents(), count: vertices.buffer.length),
+                data: Data(bytes: vertices.buffer.contents().advanced(by: vertices.offset), count: vertexBytes),
                 semantic: .vertex, vectorCount: vertices.count,
                 usesFloatComponents: true, componentsPerVector: 3, bytesPerComponent: 4,
-                dataOffset: vertices.offset, dataStride: vertices.stride)
+                dataOffset: 0, dataStride: vertices.stride)
             let faces = mesh.faces
+            guard faces.bytesPerIndex == 2 || faces.bytesPerIndex == 4 else { return }
+            let indexBytes = faces.count * 3 * faces.bytesPerIndex
+            guard indexBytes <= faces.buffer.length else { return }
             let element = SCNGeometryElement(
-                data: Data(bytes: faces.buffer.contents(), count: faces.count * 3 * faces.bytesPerIndex),
+                data: Data(bytes: faces.buffer.contents(), count: indexBytes),
                 primitiveType: .triangles, primitiveCount: faces.count, bytesPerIndex: faces.bytesPerIndex)
             let geometry = SCNGeometry(sources: [source], elements: [element])
             let material = SCNMaterial()
