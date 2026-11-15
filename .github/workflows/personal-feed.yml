@@ -52,6 +52,7 @@ jobs:
             build/personal-feed/*.log
             build/personal-feed/*.txt
             build/personal-feed/*.json
+            build/personal-feed/simulator-entitlements.plist
             build/personal-feed/*.md
             build/personal-feed/*.zip
             build/personal-feed/screenshots

@@ -15,6 +15,14 @@ class PersonalFeedBoundaries(unittest.TestCase):
         self.assertIn('org.worldexe.personalfeed',text)
         for forbidden in ['org.worldexe.prototype','NSCameraUsageDescription','NSMicrophoneUsageDescription','com.apple.security.application-groups','LocalLlama','WorldCore']:
             self.assertNotIn(forbidden,text)
+    def test_keychain_fixture_identity_is_simulator_only(self):
+        project=(CLIENT/'project.yml').read_text()
+        self.assertIn('"CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]": Generated/Simulator.entitlements',project)
+        self.assertEqual(project.count('CODE_SIGN_ENTITLEMENTS'),1)
+        script=(ROOT/'scripts/personal_feed_ci.sh').read_text()
+        self.assertIn("'keychain-access-groups':['398XACWZ7G.org.worldexe.personalfeed']",script)
+        self.assertNotIn("'keychain-access-groups':['*']",script)
+        self.assertIn('testRealKeychainRoundTripUsesDistinctTestService',(CLIENT/'AppTests/PersonalFeedTests.swift').read_text())
     def test_no_content_logs(self):
         for f in (CLIENT/'App').rglob('*.swift'):
             text=f.read_text()
