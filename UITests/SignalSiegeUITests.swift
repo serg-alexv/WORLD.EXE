@@ -54,9 +54,18 @@ final class SignalSiegeUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["siege.rankingsScope"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["siege.noScores"].exists)
         app.buttons["siege.clearRankings"].tap()
-        let confirm = app.buttons["siege.confirmClear"]
-        XCTAssertTrue(confirm.waitForExistence(timeout: 5))
-        XCTAssertTrue(confirm.isHittable)
+        let alert = app.alerts["Clear all local rankings?"]
+        XCTAssertTrue(alert.waitForExistence(timeout: 5))
+        let confirm = alert.buttons["Erase saved rankings"]
+        let hittable = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == true AND hittable == true"), object: confirm)
+        let buttonResult = XCTWaiter.wait(for: [hittable], timeout: 5)
+        if buttonResult != .completed {
+            let diagnostics = XCTAttachment(string: app.debugDescription)
+            diagnostics.name = "Clear-confirmation hit testing"; diagnostics.lifetime = .keepAlways; add(diagnostics)
+            let screenshot = XCTAttachment(screenshot: app.screenshot())
+            screenshot.name = "Clear-confirmation alert"; screenshot.lifetime = .keepAlways; add(screenshot)
+        }
+        XCTAssertEqual(buttonResult, .completed, "Destructive confirmation must be interactable")
         confirm.tap()
         // The store updates synchronously; the accessibility projection can lag the sheet animation.
         // Wait for the SAME postcondition; never replace it with a weaker no-scores assertion.

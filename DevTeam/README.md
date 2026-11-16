@@ -37,3 +37,6 @@ GitHub `devteam.yml` runs deterministic contract tests on relevant source events
 ## Limits
 
 One provider invocation at a time, 120-second deadline, 48 KB context and response budgets, immutable source hashes, no shell interpolation of model output, no automatic candidate application or release. The broker is a policy boundary, not an OS sandbox: compromised CLIs still run as the user. A separate low-privilege Windows account or sandbox is a further hardening gate before unattended tool-using agents.
+
+## Copilot adapter
+The CLI uses an empty available-tool set plus explicit shell/write/read/memory/url deny kinds; `--deny-tool=*` is invalid. The default text-review model is `claude-haiku-4.5`; an operator may select a model identifier with `WORLD_COPILOT_MODEL`. No flags, spaces or shell fragments are accepted. Remote execution remains explicitly gated. A completed response is only a proposal, never an executed test or release approval.

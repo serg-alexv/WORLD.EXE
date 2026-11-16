@@ -19,3 +19,6 @@ Place the 50 cm synthetic board on a detected horizontal tabletop while stationa
 Pure Swift tests cover state invariants, rejected-input atomicity, replay, action rate, cover, friendly-fire rejection, deterministic bots, guest revocation, wire bounds and the device gate. A native UI scenario uses actual start/fire/target/pause/exit controls and retains a synthetic screenshot. Required additional evidence: complete native CI for the exact commit, exported IPA identity/signature, Apple processing, two physical supported phones, tracking interruptions, pairing/disconnection, thermal/frame-time observations and honest player feedback.
 
 No live Hornet integration exists. A permission request is not permission, and provider permission is not participant consent. Neither is replaced by beta-community membership.
+
+## Tracking recovery by role
+A local tracking-loss latch survives incoming host snapshots and repeated tracking-ready callbacks. Every participant must explicitly Resume local controls after tracking returns. A guest's local recovery does not override a host pause. Host tracking loss also pauses the host simulation; guest tracking loss blocks that guest's controls, not the remote host's simulation. These are source/test contracts; physical two-phone behavior still requires qualification.
