@@ -21,6 +21,8 @@ jobs:
           xcode-version: '26.3'
       - name: Release identity guard unit tests
         run: python3 -m unittest discover -s scripts/tests -p 'test_*.py' -v
+      - name: Parse native Swift before expensive builds
+        run: find App UITests AppUnitTests -name '*.swift' -print0 | xargs -0 xcrun swiftc -frontend -parse
       - name: Install project generator
         run: brew install xcodegen
       - name: Restore SDK module cache
