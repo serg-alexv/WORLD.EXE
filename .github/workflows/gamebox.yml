@@ -1,0 +1,51 @@
+name: Gamebox portable gates
+on:
+  push:
+    paths:
+      - 'Gamebox/**'
+      - 'scripts/github_checkpoint.py'
+      - 'scripts/tests/test_*checkpoint_scope.py'
+      - '.github/workflows/gamebox.yml'
+  pull_request:
+    paths:
+      - 'Gamebox/**'
+      - 'scripts/github_checkpoint.py'
+      - 'scripts/tests/test_*checkpoint_scope.py'
+      - '.github/workflows/gamebox.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: gamebox-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+jobs:
+  portable-gates:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+      - name: Test contracts, combat, authority, consent, controls and network streams
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/gamebox-evidence"
+          node --version | tee "$RUNNER_TEMP/gamebox-evidence/runtime.txt"
+          npm --prefix Gamebox test 2>&1 | tee "$RUNNER_TEMP/gamebox-evidence/tests.log"
+      - name: Source-only recovery boundary
+        run: python3 -m unittest discover -s scripts/tests -p 'test_*checkpoint_scope.py' -v
+      - name: Validate configuration and synthetic demo
+        run: |
+          set -euo pipefail
+          node Gamebox/tools/worldctl.mjs validate > "$RUNNER_TEMP/gamebox-evidence/config.json"
+          node Gamebox/tools/worldctl.mjs demo > "$RUNNER_TEMP/gamebox-evidence/synthetic-demo.json"
+          node Gamebox/tools/worldctl.mjs benchmark --rooms 32 --players 8 --ticks 200 > "$RUNNER_TEMP/gamebox-evidence/synthetic-benchmark.json"
+      - name: Preserve synthetic-only portable evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: Gamebox-portable-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/gamebox-evidence
+          retention-days: 7
+          if-no-files-found: warn

@@ -45,6 +45,16 @@ def allowed(name: str, tracked: bool) -> bool:
         return False
     if any(p.lower().startswith('.env') for p in path.parts):
         return False
+    # Gamebox is source-only: runtime/credentials/provider data never enter snapshots.
+    if path.parts and path.parts[0] == 'Gamebox':
+        if name in {'Gamebox/package.json', 'Gamebox/README.md', 'Gamebox/.gitignore',
+                    'Gamebox/config/demo.json', 'Gamebox/config/schedules.json'}:
+            return True
+        if any(part.lower() in {'runtime', 'state', 'private', 'imports', 'exports', 'fixtures'} for part in path.parts):
+            return False
+        if name.startswith('Gamebox/docs/'):
+            return path.suffix == '.md'
+        return path.suffix == '.mjs' and name.startswith(('Gamebox/src/', 'Gamebox/test/', 'Gamebox/tools/'))
     # Personal-client backups are code-only, never arbitrary exports or account data.
     if path.parts and path.parts[0] == 'PersonalClient':
         if any(p.lower() in {'imports','exports','privatedata','generated','fixtures','recordings'} for p in path.parts):

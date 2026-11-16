@@ -1,0 +1,17 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {Arena,rayBox} from '../src/arena.mjs';
+import {config,aim} from './helpers.mjs';
+const fresh=()=>{const a=new Arena(config());a.addPlayer('p1');a.addPlayer('bot1',true);return a;};
+const actor=(a,id)=>a.snapshot().actors.find(p=>p.id===id);
+test('movement is server-limited to speed/tick, no teleport fields',()=>{const a=fresh(),start=actor(a,'p1').position;a.apply('p1',{seq:1,kind:'move',vector:[1,0,0]});assert.ok(Math.abs(actor(a,'p1').position[0]-start[0]-0.15)<1e-9);a.step();assert.throws(()=>a.apply('p1',{seq:2,kind:'move',vector:[1,0,0],position:[5,1,5]}),/unexpected_fields/);});
+test('replay and excess inputs do not mutate state',()=>{const a=fresh();a.apply('p1',{seq:1,kind:'reload'});const digest=a.digest();assert.throws(()=>a.apply('p1',{seq:1,kind:'reload'}),/replayed/);assert.throws(()=>a.apply('p1',{seq:2,kind:'reload'}),/input_rate/);assert.equal(a.digest(),digest);});
+for(const vector of [[Infinity,0,0],[NaN,0,0],[10,0,0],[0,0,0],[0,1,0],[1,2]])test('invalid movement '+JSON.stringify(vector),()=>{const a=fresh(),before=a.digest();assert.throws(()=>a.apply('p1',{seq:1,kind:'move',vector}));assert.equal(a.digest(),before);});
+test('server raycast hits a bot, uses ammo and enforces cooldown',()=>{const a=fresh(),d=aim(actor(a,'p1').position,actor(a,'bot1').position);assert.equal(a.apply('p1',{seq:1,kind:'fire',vector:d}).hit,'bot1');assert.equal(actor(a,'bot1').health,75);assert.equal(actor(a,'p1').ammo,11);a.step();const before=a.digest();assert.throws(()=>a.apply('p1',{seq:2,kind:'fire',vector:d}),/cooldown/);assert.equal(a.digest(),before);});
+test('server wall blocks damage',()=>{const a=fresh();a.obstacles=[{min:[-1,0,-9],max:[1,3,9]}];const d=aim(actor(a,'p1').position,actor(a,'bot1').position);assert.equal(a.apply('p1',{seq:1,kind:'fire',vector:d}).hit,null);assert.equal(actor(a,'bot1').health,100);});
+test('cooperative humans cannot damage each other',()=>{const a=fresh();a.addPlayer('p2');const d=aim(actor(a,'p1').position,actor(a,'p2').position);a.apply('p1',{seq:1,kind:'fire',vector:d});assert.equal(actor(a,'p2').health,100);});
+test('ray-box handles parallel and inside rays',()=>{const b={min:[-1,-1,-1],max:[1,1,1]};assert.equal(rayBox([0,0,0],[1,0,0],b),0);assert.equal(rayBox([0,5,0],[1,0,0],b),Infinity);assert.equal(rayBox([-5,0,0],[1,0,0],b),4);});
+test('movement collision rejects atomically',()=>{const a=fresh();a.obstacles=[{min:[-4.45,0,-7],max:[-4,2,-5]}];a.apply('p1',{seq:1,kind:'move',vector:[1,0,0]});a.step();const before=a.digest();assert.throws(()=>a.apply('p1',{seq:2,kind:'move',vector:[1,0,0]}),/collision/);assert.equal(a.digest(),before);});
+test('same inputs produce identical replay digests',()=>{const a=fresh(),b=fresh();for(let i=0;i<100;i++){a.step(100000);b.step(100000);}assert.equal(a.digest(),b.digest());assert.ok(actor(a,'p1').health<100);});
+test('only authenticated real players can submit inputs',()=>{const a=fresh();assert.throws(()=>a.apply('bot1',{seq:1,kind:'reload'}),/not_a_player/);assert.throws(()=>a.apply('outsider',{seq:1,kind:'reload'}),/not_a_player/);});
+test('temporary pressure expires and supply has a bounded effect',()=>{const a=fresh();a.applySignal({kind:'pressure',intensity:3,expiresAt:1000},100);assert.equal(a.snapshot().pressure,3);a.step(1001);assert.equal(a.snapshot().pressure,0);a.apply('p1',{seq:1,kind:'fire',vector:[1,0,0]});a.applySignal({kind:'supply',intensity:3,expiresAt:2000},1001);assert.equal(actor(a,'p1').ammo,12);});
