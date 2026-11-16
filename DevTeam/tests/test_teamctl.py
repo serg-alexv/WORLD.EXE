@@ -51,4 +51,14 @@ class TeamTests(unittest.TestCase):
     def test_atomic_write(self):
         with tempfile.TemporaryDirectory() as d:
             p=Path(d)/'r.json';m.atomic(p,{'a':1});m.atomic(p,{'a':2});self.assertEqual(json.loads(p.read_text()),{'a':2});self.assertFalse(p.with_name('r.json.tmp').exists())
+class AdapterRegressionTests(unittest.TestCase):
+ def test_private_queue_cannot_become_remote_context(self):
+  for name in ['DevTeam/queue/source.md','DevTeam/jobs/source.py','DevTeam/candidates/source.swift','DevTeam/receipts/source.md']:
+   with self.assertRaises(m.GateError):m.validate_source_path(name)
+ def test_pinned_llama_cli_flags(self):
+  source=(Path(__file__).parents[1]/'src/teamctl.py').read_text()
+  self.assertNotIn('--no-conversation',source)
+  self.assertIn('--single-turn',source)
+  self.assertIn('--simple-io',source)
+
 if __name__=='__main__':unittest.main()
