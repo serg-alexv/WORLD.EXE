@@ -1,0 +1,10 @@
+node_modules/
+coverage/
+.state/
+state/
+runtime/
+private/
+*.token
+*.log
+*.receipt.json
+.env*

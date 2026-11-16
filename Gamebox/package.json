@@ -1,0 +1,13 @@
+{
+  "name": "@worldexe/gamebox",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22.16.0" },
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "validate": "node tools/worldctl.mjs validate",
+    "demo": "node tools/worldctl.mjs demo",
+    "benchmark": "node tools/worldctl.mjs benchmark"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "excludes": [
+    "credentials",
+    "model weights",
+    "binaries",
+    "build output",
+    "private ops files"
+  ],
+  "format": 1,
+  "source_branch": "feature/gamebox-control-plane",
+  "source_head": "aea5ca93610c6ca60ea3d9e8808945e774cf1354",
+  "status": "source recovery snapshot, not a validated build",
+  "workspace": "gamebox"
+}

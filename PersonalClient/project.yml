@@ -1,0 +1,94 @@
+name: PersonalFeed
+options:
+  deploymentTarget:
+    iOS: '18.0'
+settings:
+  base:
+    SWIFT_VERSION: '5.0'
+    IPHONEOS_DEPLOYMENT_TARGET: '18.0'
+    MARKETING_VERSION: '0.1.0'
+    CURRENT_PROJECT_VERSION: '1'
+  configs:
+    Release:
+      SWIFT_OPTIMIZATION_LEVEL: -Osize
+      SWIFT_COMPILATION_MODE: wholemodule
+      DEAD_CODE_STRIPPING: YES
+packages:
+  PersonalFeedCore:
+    path: Core
+targets:
+  PersonalFeed:
+    type: application
+    platform: iOS
+    sources:
+      - path: App
+    dependencies:
+      - package: PersonalFeedCore
+        product: FeedDomain
+      - package: PersonalFeedCore
+        product: FeedAdapters
+      - package: PersonalFeedCore
+        product: FeedStore
+    info:
+      path: Generated/Info.plist
+      properties:
+        CFBundleDisplayName: Личная лента
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSFaceIDUsageDescription: Подтвердите доступ к локальным личным записям. Данные не передаются на сервер.
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: org.worldexe.personalfeed
+        "CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]": Generated/Simulator.entitlements
+        TARGETED_DEVICE_FAMILY: '1,2'
+        CODE_SIGN_STYLE: Automatic
+        GENERATE_INFOPLIST_FILE: NO
+  PersonalFeedTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [AppTests]
+    dependencies:
+      - target: PersonalFeed
+      - package: PersonalFeedCore
+        product: FeedDomain
+      - package: PersonalFeedCore
+        product: FeedAdapters
+      - package: PersonalFeedCore
+        product: FeedStore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: org.worldexe.personalfeed.tests
+        GENERATE_INFOPLIST_FILE: YES
+  PersonalFeedUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [UITests]
+    dependencies:
+      - target: PersonalFeed
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: org.worldexe.personalfeed.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: PersonalFeed
+schemes:
+  PersonalFeed:
+    build:
+      targets:
+        PersonalFeed: all
+        PersonalFeedTests: [test]
+        PersonalFeedUITests: [test]
+    test:
+      gatherCoverageData: true
+      targets:
+        - name: PersonalFeedTests
+        - name: PersonalFeedUITests

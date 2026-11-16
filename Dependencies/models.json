@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "defaultModel": {
+    "repository": "Qwen/Qwen3-0.6B-GGUF",
+    "revision": "23749fefcc72300e3a2ad315e1317431b06b590a",
+    "filename": "Qwen3-0.6B-Q8_0.gguf",
+    "bytes": 639446688,
+    "sha256": "9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031",
+    "license": "Apache-2.0",
+    "url": "https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/resolve/23749fefcc72300e3a2ad315e1317431b06b590a/Qwen3-0.6B-Q8_0.gguf",
+    "download": "Explicit user action only. Model weights are not part of the app or git repository."
+  },
+  "runtime": {
+    "repository": "ggml-org/llama.cpp",
+    "tag": "b12398",
+    "commit": "d8f30a5b6db907110b6f8d67c2f84c1443b871ef",
+    "xcframeworkSha256": "2a3387da97735921ed5256e838750c16c3fc1c3d684dc3e4bc95214dd1bf6ab2",
+    "license": "MIT",
+    "contextTokens": 2048,
+    "maxOutputTokens": 256,
+    "threads": 2
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "project": {
+    "repository": "serg-alexv/WORLD.EXE",
+    "appleApp": "6834963735",
+    "bundle": "org.worldexe.prototype",
+    "baselineVersion": "0.4.0",
+    "baselineBuild": "8.1",
+    "baselineBuildID": "e4e8f63b-4341-4657-b586-bc35d43d6400"
+  },
+  "environment": "local",
+  "transport": { "host": "127.0.0.1", "port": 8787, "bodyLimitBytes": 4096 },
+  "simulation": { "tickHz": 20, "maxRooms": 8, "maxPlayers": 8, "botsPerRoom": 2, "roomTTLSeconds": 1800, "sessionTTLSeconds": 900 },
+  "sources": { "synthetic": true, "hornet": false, "grindr": false, "privateVault": false },
+  "ai": { "policy": "deterministic", "cloudRequestsAllowed": 0 },
+  "safety": { "rawMeshUpload": false, "geographicCoordinates": false, "nonPlayerTargets": false, "autoDeploy": false }
+}
