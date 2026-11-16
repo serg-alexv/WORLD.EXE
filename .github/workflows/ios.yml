@@ -1,0 +1,109 @@
+name: iOS build and gameplay tests
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+permissions:
+  contents: read
+concurrency:
+  group: ios-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build-and-test:
+    runs-on: macos-15
+    timeout-minutes: 65
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: maxim-lobanov/setup-xcode@1242409711ff5721add51979e9e11e23ebb7e5a4
+        with:
+          xcode-version: '26.3'
+      - name: Release identity guard unit tests
+        run: python3 -m unittest discover -s scripts/tests -p 'test_*.py' -v
+      - name: Parse native Swift before expensive builds
+        run: find App UITests AppUnitTests -name '*.swift' -print0 | xargs -0 xcrun swiftc -frontend -parse
+      - name: Install project generator
+        run: brew install xcodegen
+      - name: Restore SDK module cache
+        id: modules
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          key: sdk-${{ runner.os }}-${{ runner.arch }}-xcode26.3-v1
+          path: |
+            build/DerivedData/ModuleCache.noindex
+            build/DerivedData/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules
+      - name: Restore pinned native llama framework
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830
+        id: llama
+        with:
+          key: llama-b12398-xcode26.3-sim-v1-${{ hashFiles('scripts/prepare_llama.sh') }}
+          path: LocalLlama/Frameworks
+      - name: Prepare real llama.cpp for device and simulator
+        timeout-minutes: 25
+        run: bash scripts/prepare_llama.sh
+      - name: Retain pinned native framework
+        if: steps.llama.outputs.cache-hit != 'true'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          key: llama-b12398-xcode26.3-sim-v1-${{ hashFiles('scripts/prepare_llama.sh') }}
+          path: LocalLlama/Frameworks
+      - name: Real GGUF generation with network denied
+        timeout-minutes: 12
+        run: bash scripts/llama_smoke.sh
+      - name: Core gameplay tests
+        run: bash scripts/ci.sh core
+      - name: Size-optimized core tests and kernel/assembly evidence
+        run: |
+          set -euo pipefail
+          swift test --package-path WorldCore -c release -Xswiftc -Osize 2>&1 | tee build/core-release-tests.log
+          bash scripts/benchmark_core.sh
+      - name: Compile iOS simulator app and tests
+        timeout-minutes: 12
+        run: bash scripts/ci.sh simulator
+      - name: Boot simulator and complete expedition through UI
+        timeout-minutes: 25
+        run: bash scripts/ci.sh ui
+      - name: Compile unsigned device app and package evidence
+        timeout-minutes: 8
+        run: bash scripts/ci.sh device
+      - name: Retain SDK modules for subsequent compiler iterations
+        if: always() && steps.modules.outputs.cache-hit != 'true'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          key: sdk-${{ runner.os }}-${{ runner.arch }}-xcode26.3-v1
+          path: |
+            build/DerivedData/ModuleCache.noindex
+            build/DerivedData/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules
+      - name: Export UI attachments even when a gate fails
+        if: always()
+        run: |
+          for bundle in FocusedUI TestResults; do
+            if [ -d "build/$bundle.xcresult" ]; then
+              mkdir -p "build/screenshots/$bundle"
+              xcrun xcresulttool export attachments --path "build/$bundle.xcresult" --output-path "build/screenshots/$bundle" || echo "Attachment export unavailable; original bundle retained."
+            fi
+          done
+      - name: Preserve validation evidence and build artifacts
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: WORLD.EXE-validation-${{ github.sha }}
+          retention-days: 14
+          if-no-files-found: warn
+          path: |
+            build/*.log
+            build/LLAMA_PROVENANCE.txt
+            build/*.txt
+            build/*.md
+            build/*.json
+            build/*.zip
+            build/core-benchmark/*.log
+            build/core-benchmark/*.txt
+            build/core-benchmark/*.json
+            build/core-benchmark/*.s.gz
+            build/screenshots
+            build/FocusedUI.xcresult
+            build/TestResults.xcresult
+            build/BuildForTesting.xcresult
+            WorldEXE.xcodeproj

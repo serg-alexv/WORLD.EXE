@@ -1,0 +1,14 @@
+{
+  "excludes": [
+    "credentials",
+    "model weights",
+    "binaries",
+    "build output",
+    "private ops files"
+  ],
+  "format": 1,
+  "source_branch": "ops/localhost-supervisor",
+  "source_head": "41918cda15d90d58db4da59ad03e8ff663dff1fb",
+  "status": "source recovery snapshot, not a validated build",
+  "workspace": "local-supervisor"
+}
