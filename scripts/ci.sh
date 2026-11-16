@@ -71,6 +71,14 @@ record={'name':'Qwen3 native UI fixture','filename':filename,'bytes':m['bytes'],
 (root/'installed-v1.json').write_text(json.dumps(record),encoding='utf-8')
 print('Isolated real GGUF fixture installed in simulator app container.')
 MODEL_FIXTURE
+  # Reproduce the ranking-clear regression before the full suite. No test is skipped below.
+  xcodebuild -project WorldEXE.xcodeproj -scheme WorldEXE -configuration Debug \
+    -destination "platform=iOS Simulator,id=$id" -derivedDataPath build/DerivedData \
+    -resultBundlePath build/FocusedUI.xcresult -parallel-testing-enabled NO \
+    -only-testing:WorldEXEUITests/SignalSiegeUITests/testOfflineNPCAndLocalRankingsClear \
+    -test-timeouts-enabled YES -default-test-execution-time-allowance 180 \
+    -maximum-test-execution-time-allowance 240 CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=398XACWZ7G \
+    test-without-building 2>&1 | tee build/focused-ui-tests.log
   xcodebuild -project WorldEXE.xcodeproj -scheme WorldEXE -configuration Debug \
     -destination "platform=iOS Simulator,id=$id" -derivedDataPath build/DerivedData \
     -resultBundlePath build/TestResults.xcresult -parallel-testing-enabled NO \
