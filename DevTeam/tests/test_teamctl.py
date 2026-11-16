@@ -61,4 +61,21 @@ class AdapterRegressionTests(unittest.TestCase):
   self.assertIn('--single-turn',source)
   self.assertIn('--simple-io',source)
 
+class CopilotInvocationTests(unittest.TestCase):
+    job = TeamTests.job
+    def test_documented_permission_rules_and_explicit_model(self):
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as d, patch.object(m.shutil,'which',return_value='C:/tools/copilot.exe'), patch.object(m,'bounded_process',return_value='proposal') as process, patch.dict(m.os.environ,{'WORLD_COPILOT_MODEL':'claude-haiku-4.5'}):
+            m.execute(self.job(),Path(d),Path(d),True)
+            args=process.call_args.args[0]
+            self.assertIn('--available-tools=',args)
+            for kind in ['shell','write','read','memory','url']:self.assertIn('--deny-tool='+kind,args)
+            self.assertNotIn('--deny-tool=*',args);self.assertNotIn('--allow-all',args)
+            self.assertEqual(args[args.index('--model')+1],'claude-haiku-4.5')
+    def test_model_cannot_inject_cli_options(self):
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as d, patch.object(m.shutil,'which',return_value='C:/tools/copilot.exe'), patch.object(m,'bounded_process') as process, patch.dict(m.os.environ,{'WORLD_COPILOT_MODEL':'--allow-all'}):
+            with self.assertRaises(m.GateError):m.execute(self.job(),Path(d),Path(d),True)
+            process.assert_not_called()
+
 if __name__=='__main__':unittest.main()

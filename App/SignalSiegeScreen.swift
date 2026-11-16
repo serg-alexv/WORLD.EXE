@@ -272,8 +272,11 @@ private struct SiegeRankingsScreen: View {
                 }
             }.navigationTitle("Local top 10")
                 .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Close") { dismiss() }.accessibilityIdentifier("siege.rankingsClose") } }
-                .confirmationDialog("Clear all local rankings?", isPresented: $confirmClear, titleVisibility: .visible) {
+                .alert("Clear all local rankings?", isPresented: $confirmClear) {
                     Button("Erase saved rankings", role: .destructive) { store.clearRankings() }.accessibilityIdentifier("siege.confirmClear")
+                    Button("Cancel", role: .cancel) { }
+                } message: {
+                    Text("Erase saved local rankings for every seed and difficulty. Current mission progress will not be reset.")
                 }
         }.tint(Palette.teal)
     }

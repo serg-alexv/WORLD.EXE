@@ -8,7 +8,7 @@
   ],
   "format": 1,
   "source_branch": "feature/gamebox-control-plane",
-  "source_head": "7d395f2e989d6801a3890ff129c2eaae73724b40",
+  "source_head": "4678bfc522ec2a6ecfc3c7cd3afcff81b12c96b0",
   "status": "source recovery snapshot, not a validated build",
   "workspace": "gamebox"
 }

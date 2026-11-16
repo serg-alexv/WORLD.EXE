@@ -132,7 +132,9 @@ def execute(job,state:Path,ops:Path,allow_remote:bool):
     if provider=='copilot':
         exe=shutil.which('copilot')
         if not exe or (os.name=='nt' and not exe.lower().endswith('.exe')): raise GateError('copilot_executable_unavailable')
-        return bounded_process([exe,'-p',text,'--deny-tool=*','--disable-builtin-mcps','--no-custom-instructions','--no-remote','--no-remote-export','--no-auto-update','--no-ask-user','--max-ai-credits','30','--log-level','error','--log-dir',str(work/'logs'),'--output-format','json'],work)
+        model=os.environ.get('WORLD_COPILOT_MODEL','claude-haiku-4.5')
+        if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._-]{0,95}',model): raise GateError('invalid_copilot_model')
+        return bounded_process([exe,'-p',text,'--model',model,'--available-tools=','--deny-tool=shell','--deny-tool=write','--deny-tool=read','--deny-tool=memory','--deny-tool=url','--disable-builtin-mcps','--no-custom-instructions','--no-remote','--no-remote-export','--no-auto-update','--no-ask-user','--max-ai-credits','30','--log-level','error','--log-dir',str(work/'logs'),'--output-format','json'],work)
     if provider=='gemini':
         node=shutil.which('node');exe=ops/'agent-tools/node_modules/@google/gemini-cli/bundle/gemini.js'
         if not node or not exe.is_file(): raise GateError('pinned_gemini_cli_unavailable')

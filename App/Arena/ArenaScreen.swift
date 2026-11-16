@@ -80,8 +80,8 @@ struct ArenaScreen: View {
             HStack {
                 Button("Target: \(game.selected)") { game.selectNext() }.accessibilityIdentifier("arena.target")
                 Spacer()
-                Button(game.paused ? "Resume" : "Pause") { game.togglePause() }
-                    .disabled(game.role == .guest || (ar && !ready)).accessibilityIdentifier("arena.pause")
+                Button(game.paused || game.needsTrackingResume ? "Resume" : "Pause") { game.togglePause() }
+                    .disabled((game.role == .guest && !game.needsTrackingResume) || (ar && !ready)).accessibilityIdentifier("arena.pause")
             }
             HStack(spacing: 16) {
                 VStack(spacing: 6) {

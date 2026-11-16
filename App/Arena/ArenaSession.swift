@@ -17,10 +17,12 @@ final class ArenaSession: ObservableObject {
     private var timer: Timer?
     private var admittedSession: UUID?
     private var sequence=0
-    private var trackingReady=true
+    @Published private var trackingGate = ArenaTrackingGate()
+    private var trackingReady: Bool { trackingGate.trackingReady }
+    var needsTrackingResume: Bool { trackingGate.requiresResume }
     var playerID: String { role == .guest ? "guest" : "host" }
     var player: ArenaActor? { state.actors.first{$0.id==playerID} }
-    var canAct: Bool { active && !paused && trackingReady && !state.won && !state.lost && (player?.health ?? 0)>0 }
+    var canAct: Bool { active && trackingGate.permitsActions(authorityPaused: paused) && !state.won && !state.lost && (player?.health ?? 0)>0 }
     init() {
         peer.onData = { [weak self] data in self?.receive(data) }
         peer.onConnection = { [weak self] connected in self?.connection(connected) }
@@ -29,15 +31,22 @@ final class ArenaSession: ObservableObject {
     func host() { reset(.host);status="Waiting for an explicitly accepted teammate";peer.host();startClock() }
     func browse() { reset(.guest);status="Choose the host, enter its code, and wait for acceptance";peer.browse() }
     private func reset(_ next: Role) {
-        stop(); role=next;state=ArenaMission();sequence=0;admittedSession=nil;active=true;trackingReady=true;selected="bot1"
+        stop(); role=next;state=ArenaMission();sequence=0;admittedSession=nil;active=true;trackingGate=ArenaTrackingGate();selected="bot1"
     }
     func stop() { timer?.invalidate();timer=nil;active=false;paused=true;peer.stop();admittedSession=nil }
     func setTracking(_ ready: Bool) {
-        trackingReady=ready
+        trackingGate.updateTracking(ready)
         if !ready && active { paused=true;status="Paused: restore tracking, then Resume";broadcast() }
     }
     func togglePause() {
-        guard active,role != .guest,trackingReady else { return }
+        guard active,trackingReady else { return }
+        if trackingGate.requiresResume {
+            guard trackingGate.resume() else { return }
+            if role != .guest { paused = false }
+            status = paused ? "Host paused" : "Synthetic arena running"
+            broadcast(); return
+        }
+        guard role != .guest else { return }
         paused.toggle();status=paused ? "Paused" : "Synthetic arena running";broadcast()
     }
     func input(_ kind: ArenaInput.Kind,x:Double=0,z:Double=0) {
@@ -56,7 +65,7 @@ final class ArenaSession: ObservableObject {
     private func startClock() {
         timer=Timer.scheduledTimer(withTimeInterval:0.1,repeats:true) { [weak self] _ in
             Task { @MainActor in
-                guard let self,self.active,self.role != .guest,!self.paused,self.trackingReady else { return }
+                guard let self,self.active,self.role != .guest,self.trackingGate.permitsActions(authorityPaused: self.paused) else { return }
                 self.state.step();self.broadcast()
                 if self.state.won { self.status="Arena clear. All three synthetic bots eliminated." }
                 else if self.state.lost { self.status="Squad down. Restart to try another route." }
@@ -66,7 +75,7 @@ final class ArenaSession: ObservableObject {
     private func connection(_ connected:Bool) {
         guard active else { return }
         if role == .host {
-            state.setGuest(connected);paused = !connected;status=connected ? "Two players · host-authoritative" : "Pair disconnected · paused"
+            state.setGuest(connected);paused = !connected || trackingGate.requiresResume;status=connected ? "Two players · host-authoritative" : "Pair disconnected · paused"
             broadcast()
         } else if role == .guest {
             admittedSession=nil;paused=true;status=connected ? "Connected; waiting for authoritative state" : "Disconnected · no offline impersonation"
@@ -77,7 +86,7 @@ final class ArenaSession: ObservableObject {
         if role == .guest,let next=packet.state {
             guard next.actors.contains(where:{$0.id=="guest"}), admittedSession == nil || admittedSession==next.session else { return }
             if admittedSession != nil && next.tick<state.tick { return }
-            admittedSession=next.session;state=next;paused=packet.paused;status="Paired · authoritative synthetic state"
+            admittedSession=next.session;state=next;paused=packet.paused;status=trackingGate.requiresResume ? "Local tracking paused · Resume after recovery" : "Paired · authoritative synthetic state"
             sequence=max(sequence,player?.ack ?? 0)
         } else if role == .host, !paused,trackingReady,packet.session==state.session,let input=packet.input {
             // The peer cannot choose an actor identity. Every accepted input belongs to guest.
