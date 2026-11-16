@@ -25,6 +25,14 @@ def make_handler(controller):
         server_version='WORLD.EXE-LocalOps';sys_version=''
         def log_message(self,*a):pass
         def send(self,code,obj):
+            # Drain only a small declared body before an error close. Windows may otherwise
+            # reset a connection with unread inbound bytes before the rejection is delivered.
+            if code>=400 and self.command=='POST' and not getattr(self,'_body_read',False):
+                try:
+                    length=int(self.headers.get('Content-Length','0'))
+                    if 0<length<=8192 and not self.headers.get('Transfer-Encoding'):
+                        self.rfile.read(length);self._body_read=True
+                except (ValueError,OSError):pass
             data=json.dumps(obj).encode();self.send_response(code)
             self.send_header('Content-Type','application/json');self.send_header('Content-Length',str(len(data)))
             self.send_header('Cache-Control','no-store');self.send_header('X-Content-Type-Options','nosniff');self.send_header('Connection','close')
@@ -56,7 +64,8 @@ def make_handler(controller):
             try:
                 length=int(self.headers.get('Content-Length','0'))
                 if not 1<=length<=1024 or self.headers.get('Content-Type')!='application/json':raise ValueError()
-                obj=json.loads(self.rfile.read(length))
+                raw=self.rfile.read(length);self._body_read=True
+                obj=json.loads(raw)
                 if not isinstance(obj,dict) or set(obj)!={'command'} or obj['command'] not in {'pause','resume','reconcile','retry','stop'}:raise ValueError()
                 response=concurrent.futures.Future()
                 controller.events.put(('control',obj['command'],response),block=False)
