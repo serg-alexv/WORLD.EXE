@@ -54,9 +54,33 @@ final class SignalSiegeUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["siege.rankingsScope"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["siege.noScores"].exists)
         app.buttons["siege.clearRankings"].tap()
-        let confirm = app.buttons["Erase saved rankings"].firstMatch
-        XCTAssertTrue(confirm.waitForExistence(timeout: 5)); confirm.tap()
-        XCTAssertTrue(app.staticTexts["siege.rankingStatus"].label.contains("cleared"))
+        let alert = app.alerts["Clear all local rankings?"]
+        XCTAssertTrue(alert.waitForExistence(timeout: 5))
+        let confirm = alert.buttons["Erase saved rankings"]
+        let hittable = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == true AND hittable == true"), object: confirm)
+        let buttonResult = XCTWaiter.wait(for: [hittable], timeout: 5)
+        if buttonResult != .completed {
+            let diagnostics = XCTAttachment(string: app.debugDescription)
+            diagnostics.name = "Clear-confirmation hit testing"; diagnostics.lifetime = .keepAlways; add(diagnostics)
+            let screenshot = XCTAttachment(screenshot: app.screenshot())
+            screenshot.name = "Clear-confirmation alert"; screenshot.lifetime = .keepAlways; add(screenshot)
+        }
+        XCTAssertEqual(buttonResult, .completed, "Destructive confirmation must be interactable")
+        confirm.tap()
+        // The store updates synchronously; the accessibility projection can lag the sheet animation.
+        // Wait for the SAME postcondition; never replace it with a weaker no-scores assertion.
+        let status = app.staticTexts["siege.rankingStatus"]
+        let cleared = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "exists == true AND label CONTAINS %@", "cleared"), object: status)
+        let result = XCTWaiter.wait(for: [cleared], timeout: 5)
+        if result != .completed {
+            let diagnostics = XCTAttachment(string: "rankingStatus=\(status.exists ? status.label : "MISSING")\n" + app.debugDescription)
+            diagnostics.name = "Ranking-clear failure accessibility state"; diagnostics.lifetime = .keepAlways; add(diagnostics)
+            let screenshot = XCTAttachment(screenshot: app.screenshot())
+            screenshot.name = "Ranking-clear failure screen"; screenshot.lifetime = .keepAlways; add(screenshot)
+        }
+        XCTAssertEqual(result, .completed, "Clear confirmation did not publish success: \(status.exists ? status.label : "MISSING")")
+        XCTAssertTrue(app.staticTexts["siege.noScores"].exists)
         app.buttons["siege.rankingsClose"].tap()
         XCTAssertTrue(app.buttons["siege.close"].exists)
     }

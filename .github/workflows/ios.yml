@@ -21,6 +21,8 @@ jobs:
           xcode-version: '26.3'
       - name: Release identity guard unit tests
         run: python3 -m unittest discover -s scripts/tests -p 'test_*.py' -v
+      - name: Parse native Swift before expensive builds
+        run: find App UITests AppUnitTests -name '*.swift' -print0 | xargs -0 xcrun swiftc -frontend -parse
       - name: Install project generator
         run: brew install xcodegen
       - name: Restore SDK module cache
@@ -60,7 +62,7 @@ jobs:
         timeout-minutes: 12
         run: bash scripts/ci.sh simulator
       - name: Boot simulator and complete expedition through UI
-        timeout-minutes: 20
+        timeout-minutes: 25
         run: bash scripts/ci.sh ui
       - name: Compile unsigned device app and package evidence
         timeout-minutes: 8
@@ -73,6 +75,15 @@ jobs:
           path: |
             build/DerivedData/ModuleCache.noindex
             build/DerivedData/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules
+      - name: Export UI attachments even when a gate fails
+        if: always()
+        run: |
+          for bundle in FocusedUI TestResults; do
+            if [ -d "build/$bundle.xcresult" ]; then
+              mkdir -p "build/screenshots/$bundle"
+              xcrun xcresulttool export attachments --path "build/$bundle.xcresult" --output-path "build/screenshots/$bundle" || echo "Attachment export unavailable; original bundle retained."
+            fi
+          done
       - name: Preserve validation evidence and build artifacts
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -92,6 +103,7 @@ jobs:
             build/core-benchmark/*.json
             build/core-benchmark/*.s.gz
             build/screenshots
+            build/FocusedUI.xcresult
             build/TestResults.xcresult
             build/BuildForTesting.xcresult
             WorldEXE.xcodeproj

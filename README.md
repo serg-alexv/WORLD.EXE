@@ -1,9 +1,17 @@
 # WORLD.EXE — Fusion demo
 
-**0.4.0 candidate:** one launcher for Training/Signal Siege, CONTACT, spatial sensors, optional local GGUF and the authenticated personal-feed workspace. See [FUSION_DEMO](docs/FUSION_DEMO.md) for the current build boundary and phone acceptance. Actual TestFlight availability is established by the release receipt, not this source heading.
+**0.5.0 Arena candidate:** native synthetic tabletop combat, optional local AR mesh occlusion, explicit two-player pairing, and a bounded [development team](DevTeam/README.md). See [Arena acceptance](docs/ARENA_DEMO.md). This source is not a TestFlight availability receipt. The delivered 0.4.0 (8.1) baseline is preserved.
+
+**0.4.0 delivered feature set:** one launcher for Training/Signal Siege, CONTACT, spatial sensors, optional local GGUF and the authenticated personal-feed workspace. See [FUSION_DEMO](docs/FUSION_DEMO.md) for the current build boundary and phone acceptance. Actual TestFlight availability is established by the release receipt, not this source heading.
 
 The integrated personal workspace is a separate Swift module and encrypted vault **in the same app process/container**, not an OS sandbox. No private-record route to game, NPC, inference, scores or sensor journals is connected. The independently buildable PersonalFeed app below remains available as a source target; it is not the distribution identity for the combined release. Hornet/Grindr live APIs are not connected.
 
+
+## Gamebox control-plane development
+
+The [Gamebox reference service](Gamebox/README.md) adds configurable authoritative tactical rooms, deterministic bots, authenticated HTTP/SSE, synthetic event ingestion, and persistent pause/drain controls. It is a **local headless backend**, not a replacement TestFlight release and not yet connected to the native AR renderer. The delivered Fusion 0.4.0 (8.1) remains the baseline.
+
+Live Hornet/Grindr integrations remain disabled. Private Feed records, precise locations, real people and raw room meshes cannot enter this service. Provider permission, independently assessed consent/data rights, native-client wiring, physical-device testing, internet transport and production qualification remain explicit gates. See [architecture](Gamebox/docs/ARCHITECTURE.md), [API](Gamebox/docs/API.md), [acceptance](Gamebox/docs/ACCEPTANCE.md), and [operations](Gamebox/docs/OPERATIONS.md).
 
 ## Independent product boundaries
 
@@ -77,9 +85,9 @@ The manual **TestFlight release** workflow is restricted to main and runs valida
 
 Current Apple provisioning observations and the exact permission gate are in [DEPLOYMENT_STATUS](docs/DEPLOYMENT_STATUS.md). Source code, an unsigned app, and an accepted upload are not interchangeable with an available TestFlight build. Rhea RF Spanner is independent and must not be modified.
 
-## Prototype scope
+## Original training slice (historical scope)
 
-One deterministic mission; no combat, multiplayer, RF measurements or biological readings. Room rendering uses element bounding boxes. Room export is synchronous and needs physical-device performance testing. Real LiDAR, RoomPlan accuracy/export, background interruptions, permissions, thermal behavior and touch comfort require testing on a supported iPhone. There are no third-party models, game assets, analytics SDKs or backend services in this slice.
+This paragraph describes the original training slice, not the later CONTACT, Signal Siege, or Gamebox modules: one deterministic mission; no combat, multiplayer, RF measurements or biological readings. Room rendering uses element bounding boxes. Room export is synchronous and needs physical-device performance testing. Real LiDAR, RoomPlan accuracy/export, background interruptions, permissions, thermal behavior and touch comfort require testing on a supported iPhone. There are no third-party models, game assets, analytics SDKs or backend services in this slice.
 
 ## Compact implementation
 

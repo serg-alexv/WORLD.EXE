@@ -28,7 +28,7 @@ IDENTITY
     -destination 'generic/platform=iOS Simulator' \
     -derivedDataPath build/DerivedData -resultBundlePath build/BuildForTesting.xcresult \
     CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=398XACWZ7G build-for-testing 2>&1 | tee build/simulator-build.log
-  python3 scripts/verify_app_identity.py build/DerivedData/Build/Products/Debug-iphonesimulator/WorldEXE.app --version 0.4.0 --build 1
+  python3 scripts/verify_app_identity.py build/DerivedData/Build/Products/Debug-iphonesimulator/WorldEXE.app --version 0.5.0 --build 1
   touch build/simulator-build.ok
 }
 ui() {
@@ -71,6 +71,14 @@ record={'name':'Qwen3 native UI fixture','filename':filename,'bytes':m['bytes'],
 (root/'installed-v1.json').write_text(json.dumps(record),encoding='utf-8')
 print('Isolated real GGUF fixture installed in simulator app container.')
 MODEL_FIXTURE
+  # Reproduce the ranking-clear regression before the full suite. No test is skipped below.
+  xcodebuild -project WorldEXE.xcodeproj -scheme WorldEXE -configuration Debug \
+    -destination "platform=iOS Simulator,id=$id" -derivedDataPath build/DerivedData \
+    -resultBundlePath build/FocusedUI.xcresult -parallel-testing-enabled NO \
+    -only-testing:WorldEXEUITests/SignalSiegeUITests/testOfflineNPCAndLocalRankingsClear \
+    -test-timeouts-enabled YES -default-test-execution-time-allowance 180 \
+    -maximum-test-execution-time-allowance 240 CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=398XACWZ7G \
+    test-without-building 2>&1 | tee build/focused-ui-tests.log
   xcodebuild -project WorldEXE.xcodeproj -scheme WorldEXE -configuration Debug \
     -destination "platform=iOS Simulator,id=$id" -derivedDataPath build/DerivedData \
     -resultBundlePath build/TestResults.xcresult -parallel-testing-enabled NO \
@@ -89,7 +97,7 @@ device() {
     -destination 'generic/platform=iOS' -derivedDataPath build/DeviceData \
     CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY='' \
     build 2>&1 | tee build/device-build.log
-  python3 scripts/verify_app_identity.py build/DeviceData/Build/Products/Release-iphoneos/WorldEXE.app --version 0.4.0 --build 1
+  python3 scripts/verify_app_identity.py build/DeviceData/Build/Products/Release-iphoneos/WorldEXE.app --version 0.5.0 --build 1
   touch build/device.ok
   ditto -c -k --sequesterRsrc --keepParent build/DerivedData/Build/Products/Debug-iphonesimulator/WorldEXE.app build/WORLD.EXE-Simulator.zip
   ditto -c -k --sequesterRsrc --keepParent build/DeviceData/Build/Products/Release-iphoneos/WorldEXE.app build/WORLD.EXE-UNSIGNED-device.zip

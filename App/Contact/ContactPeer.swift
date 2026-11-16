@@ -4,6 +4,8 @@ import MultipeerConnectivity
 
 final class ContactPeer: NSObject, ObservableObject, MCSessionDelegate, MCNearbyServiceAdvertiserDelegate, MCNearbyServiceBrowserDelegate {
     static let service = "world-contact"
+    private let serviceType: String
+    init(serviceType: String = ContactPeer.service) { self.serviceType = serviceType; super.init() }
     let identity = MCPeerID(displayName: "CONTACT-" + String(UUID().uuidString.prefix(6)))
     @Published private(set) var hosts: [MCPeerID] = []
     @Published private(set) var connected = false
@@ -38,12 +40,12 @@ final class ContactPeer: NSObject, ObservableObject, MCSessionDelegate, MCNearby
     func host() {
         dispatchPrecondition(condition: .onQueue(.main)); prepare(); hosting = true
         code = String(format: "%06d", Int.random(in: 0...999999))
-        let a = MCNearbyServiceAdvertiser(peer: identity, discoveryInfo: nil, serviceType: Self.service)
+        let a = MCNearbyServiceAdvertiser(peer: identity, discoveryInfo: nil, serviceType: serviceType)
         advertiser = a; a.delegate = self; a.startAdvertisingPeer(); status = "Ожидание выбранного оператора"
     }
     func browse() {
         dispatchPrecondition(condition: .onQueue(.main)); prepare(); hosting = false
-        let b = MCNearbyServiceBrowser(peer: identity, serviceType: Self.service)
+        let b = MCNearbyServiceBrowser(peer: identity, serviceType: serviceType)
         browser = b; b.delegate = self; b.startBrowsingForPeers(); status = "Выберите ведущего и введите его код"
     }
     func invite(_ host: MCPeerID, code: String) {
