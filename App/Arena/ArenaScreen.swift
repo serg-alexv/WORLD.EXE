@@ -16,7 +16,7 @@ struct ArenaScreen:View {
             HStack{Button("WORLD.EXE",action:onExit).accessibilityIdentifier("arena.close");Spacer();Text("ARENA / 0.5.0").font(.system(.caption,design:.monospaced))}.padding(.horizontal)
             if !ArenaHardware.admitted {
                 Spacer();Text("iPhone 18 Pro or Pro Max required").font(.title2.bold())
-                Text("This new arena requires iOS 27 and a qualified Pro device. Existing Fusion modes remain separate.").multilineTextAlignment(.center)
+                Text("This new arena requires iOS 27 and a supported Pro device. Existing Fusion modes remain separate.").multilineTextAlignment(.center)
                 Spacer()
             } else {
                 Text(ArenaHardware.simulator ? "SIMULATOR · NOT PHYSICAL-DEVICE QUALIFICATION" : "SYNTHETIC TACTICAL ARENA · LOCAL-ONLY").font(.system(size:10,design:.monospaced)).foregroundStyle(Palette.amber)
