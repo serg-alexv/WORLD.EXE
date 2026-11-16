@@ -1,0 +1,31 @@
+name: DevTeam contract gates
+on:
+  pull_request:
+    paths: ['DevTeam/**', 'world.ps1', '.github/workflows/devteam.yml']
+  push:
+    branches: [main]
+    paths: ['DevTeam/**', 'world.ps1', '.github/workflows/devteam.yml']
+  schedule:
+    - cron: '17 5 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: devteam-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Bounded broker regression tests (no models or credentials)
+        run: python3 -m unittest discover -s DevTeam/tests -v
+      - name: Reject bytecode and private runtime in tracked development sources
+        run: |
+          python3 - <<'PY'
+          import subprocess
+          names=subprocess.check_output(['git','ls-files','DevTeam/'],text=True).splitlines()
+          bad=[x for x in names if any(p in x.lower().split('/') for p in ['runtime','queue','candidates','receipts','__pycache__']) or x.endswith(('.p8','.gguf','.pyc'))]
+          assert not bad, 'Private or generated artifact in development source'
+          PY

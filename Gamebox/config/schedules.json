@@ -2,12 +2,55 @@
   "schemaVersion": 1,
   "repository": "serg-alexv/WORLD.EXE",
   "lanes": [
-    {"name":"source-recovery","scheduler":"Windows Task Scheduler","existingTask":"WORLD.EXE-GitHub-saveups-5min","intervalSeconds":300,"authority":"source-only snapshots","noDevelopment":true},
-    {"name":"portable-validation","scheduler":"GitHub Actions","workflow":"gamebox.yml","trigger":"source changes or explicit manual dispatch","authority":"test only; no deployment"},
-    {"name":"outside-review","scheduler":"ChatGPT","existingTaskID":"6afa12688f7481918c7df0472da40267","intervalSeconds":3600,"authority":"Apple/repository read-only; private monitoring receipts","targetVersion":"0.4.0","targetBuild":"8.1","targetBuildID":"e4e8f63b-4341-4657-b586-bc35d43d6400","stopOn":"independently assessed genuine outside gameplay review"},
-    {"name":"platform-checkpoint","scheduler":"ChatGPT","cadence":"daily","authority":"read-only technical gate assessment; bounded local validation only when source changes","noAutoDeploy":true}
+    {
+      "name": "source-recovery",
+      "scheduler": "Windows Task Scheduler",
+      "existingTask": "WORLD.EXE-GitHub-saveups-5min",
+      "intervalSeconds": 300,
+      "authority": "source-only snapshots",
+      "noDevelopment": true
+    },
+    {
+      "name": "portable-validation",
+      "scheduler": "GitHub Actions",
+      "workflow": "gamebox.yml",
+      "trigger": "source changes or explicit manual dispatch",
+      "authority": "test only; no deployment"
+    },
+    {
+      "name": "outside-review",
+      "scheduler": "ChatGPT",
+      "existingTaskID": "6afa12688f7481918c7df0472da40267",
+      "intervalSeconds": 3600,
+      "authority": "Apple/repository read-only; private monitoring receipts",
+      "targetVersion": "0.4.0",
+      "targetBuild": "8.1",
+      "targetBuildID": "e4e8f63b-4341-4657-b586-bc35d43d6400",
+      "stopOn": "independently assessed genuine outside gameplay review"
+    },
+    {
+      "name": "platform-checkpoint",
+      "scheduler": "ChatGPT",
+      "cadence": "daily",
+      "authority": "read-only technical gate assessment; bounded local validation only when source changes",
+      "noAutoDeploy": true
+    },
+    {
+      "name": "development-observer",
+      "scheduler": "Windows Task Scheduler",
+      "existingTask": "WORLD.EXE-DevTeam-1h",
+      "intervalSeconds": 3600,
+      "authority": "read-only source/readiness observation; no model execution or release"
+    },
+    {
+      "name": "development-regressions",
+      "scheduler": "GitHub Actions",
+      "workflow": "devteam.yml",
+      "trigger": "relevant PR/main changes plus daily UTC cron",
+      "authority": "portable synthetic broker tests only"
+    }
   ],
-  "unrelatedTasks":"untouched",
-  "automaticReleaseDispatch":false,
-  "actualInstallationEvidence":"private WORLD.EXE-ops receipts; this manifest alone is not execution evidence"
+  "unrelatedTasks": "untouched",
+  "automaticReleaseDispatch": false,
+  "actualInstallationEvidence": "private WORLD.EXE-ops receipts; this manifest alone is not execution evidence"
 }
