@@ -102,6 +102,9 @@ class HTTPTests(unittest.TestCase):
     def test_arbitrary_extra_control_fields_denied(self):self.assertEqual(self.request('/v1/control','POST',True,{'Content-Type':'application/json'},'{"command":"pause","argv":["rm"]}')[0],400)
     def test_large_body_denied(self):self.assertEqual(self.request('/v1/control','POST',True,{'Content-Type':'application/json'},'x'*1100)[0],400)
     def test_control_requires_auth(self):self.assertEqual(self.request('/v1/control','POST',False,{'Content-Type':'application/json'},'{"command":"pause"}')[0],401)
+    def test_unauthorized_body_is_rejected_without_queueing(self):
+        self.assertEqual(self.request('/v1/control','POST',False,{'Content-Type':'application/json'},'x'*2000)[0],401)
+        self.assertTrue(self.c.events.empty())
     def test_real_control_roundtrip(self):
         def consume():
             kind,command,future=self.c.events.get(timeout=3);self.c.commands.append(command);future.set_result({'accepted':True})
@@ -196,6 +199,36 @@ class WindowsNativeTests(unittest.TestCase):
         p=subprocess.Popen([sys.executable,'-c','import time;time.sleep(60)'],creationflags=subprocess.CREATE_NO_WINDOW)
         try:
             job=ChildJob();job.assign(p);job.close();p.wait(timeout=10);self.assertIsNotNone(p.returncode)
+        finally:
+            if p.poll() is None:p.kill();p.wait()
+
+class RecoveryPolicyTests(unittest.TestCase):
+    def test_intentional_stop_never_restarts(self):
+        import recovery
+        with tempfile.TemporaryDirectory() as d:
+            self.assertTrue(recovery.recovery_allowed(d))
+            common.atomic(Path(d)/'stop.json',{'intentional':True})
+            self.assertFalse(recovery.recovery_allowed(d))
+    def test_circuit_is_respected(self):
+        import recovery
+        with tempfile.TemporaryDirectory() as d:
+            common.atomic(Path(d)/'guardian.json',{'circuit':True})
+            self.assertFalse(recovery.recovery_allowed(d))
+    def test_disabled_task_is_respected(self):
+        import recovery
+        with tempfile.TemporaryDirectory() as d:self.assertFalse(recovery.recovery_allowed(d,False))
+    def test_invalid_process_is_not_attached(self):
+        import recovery
+        self.assertFalse(recovery.is_owned_guardian(None,Path('unused')))
+        self.assertFalse(recovery.is_owned_guardian(-1,Path('unused')))
+    @unittest.skipUnless(os.name=='nt','Windows process-signalled event')
+    def test_native_process_exit_signals_handle(self):
+        from recovery import ProcessExit
+        p=subprocess.Popen([sys.executable,'-c','import time;time.sleep(60)'],creationflags=subprocess.CREATE_NO_WINDOW)
+        try:
+            with ProcessExit(p.pid) as process:
+                self.assertFalse(process.exited(0));p.terminate();p.wait(timeout=5)
+                self.assertTrue(process.exited(1000))
         finally:
             if p.poll() is None:p.kill();p.wait()
 
