@@ -1,6 +1,7 @@
 name: Gamebox portable gates
 on:
   push:
+    branches: [main]
     paths:
       - 'Gamebox/**'
       - 'scripts/github_checkpoint.py'
