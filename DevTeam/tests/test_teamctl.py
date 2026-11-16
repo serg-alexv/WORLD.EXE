@@ -72,6 +72,7 @@ class CopilotInvocationTests(unittest.TestCase):
             for kind in ['shell','write','read','memory','url']:self.assertIn('--deny-tool='+kind,args)
             self.assertNotIn('--deny-tool=*',args);self.assertNotIn('--allow-all',args)
             self.assertEqual(args[args.index('--model')+1],'claude-haiku-4.5')
+            self.assertIn('-s',args); self.assertNotIn('--output-format',args)
     def test_model_cannot_inject_cli_options(self):
         from unittest.mock import patch
         with tempfile.TemporaryDirectory() as d, patch.object(m.shutil,'which',return_value='C:/tools/copilot.exe'), patch.object(m,'bounded_process') as process, patch.dict(m.os.environ,{'WORLD_COPILOT_MODEL':'--allow-all'}):
