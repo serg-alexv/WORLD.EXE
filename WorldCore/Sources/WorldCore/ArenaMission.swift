@@ -122,6 +122,7 @@ public struct ArenaPacket: Codable, Sendable {
     public init(session: UUID,input: ArenaInput) { version=1;self.session=session;paused=false;state=nil;self.input=input }
     public static func decode(_ data: Data) -> ArenaPacket? {
         guard !data.isEmpty, data.count<=16_384, let p=try? JSONDecoder().decode(Self.self,from:data),p.version==1,
+              p.session.uuidString != "00000000-0000-0000-0000-000000000000",
               (p.state == nil) != (p.input == nil) else { return nil }
         if let s=p.state { guard s.valid,s.session==p.session else { return nil } }
         return p

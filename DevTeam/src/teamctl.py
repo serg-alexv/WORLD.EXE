@@ -28,7 +28,7 @@ def validate_source_path(name:str):
     if not isinstance(name,str) or not name or '\\' in name or ':' in name or p.is_absolute() or '..' in p.parts:
         raise GateError('unsafe_source_path')
     if p.parts[0] not in SOURCE_ROOTS or p.suffix not in EXTENSIONS: raise GateError('source_not_allowlisted')
-    if any(x.lower() in {'.git','.build','build','node_modules','private','runtime','imports','exports','fixtures','__pycache__'} or x.startswith('.') for x in p.parts):
+    if any(x.lower() in {'.git','.build','build','node_modules','private','runtime','imports','exports','fixtures','queue','jobs','candidates','receipts','__pycache__'} or x.startswith('.') for x in p.parts):
         raise GateError('private_or_generated_path')
     return p
 
@@ -161,7 +161,7 @@ def execute(job,state:Path,ops:Path,allow_remote:bool):
                 for chunk in iter(lambda:f.read(1024*1024),b''):h.update(chunk)
             if h.hexdigest()!=m[key]: raise GateError('local_artifact_hash_mismatch')
         if len(text.encode())>8000: raise GateError('local_context_budget')
-        return bounded_process([str(exe),'-m',str(model),'-p',text,'-n','192','-c','2048','-t','2','--no-display-prompt','--no-conversation'],work)
+        return bounded_process([str(exe),'-m',str(model),'-p',text,'-n','192','-c','2048','-t','2','--no-display-prompt','--single-turn','--simple-io','--reasoning','off'],work)
     raise GateError('unknown_provider')
 
 def run_job(job_path:Path,state:Path,ops:Path,allow_remote:bool):
