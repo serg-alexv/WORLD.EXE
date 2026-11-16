@@ -37,6 +37,17 @@ final class SignalSiegeIntegrationTests: XCTestCase {
         try body(storage)
     }
 
+    func testClearingAnAlreadyEmptyRankingPublishesSuccessWithoutChangingMission() {
+        let store = SignalSiegeStore(persist: false)
+        let mission = store.mission
+        XCTAssertTrue(store.leaderboard.isEmpty)
+        store.clearRankings()
+        XCTAssertEqual(store.rankingStatus, "Local rankings cleared. Replay to earn a new entry.")
+        XCTAssertEqual(store.rankingVoice, .rankingCleared)
+        XCTAssertEqual(store.mission, mission)
+        XCTAssertTrue(store.leaderboard.isEmpty)
+    }
+
     func testTacticalActionsAndClearOnlyJournalGameplay() {
         let log = EvidenceStore(persist: false)
         let store = SignalSiegeStore(persist: false, evidence: log)
