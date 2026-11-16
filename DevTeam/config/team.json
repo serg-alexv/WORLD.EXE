@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "repository": "serg-alexv/WORLD.EXE",
+  "maxConcurrent": 1,
+  "timeoutSeconds": 120,
+  "maxContextBytes": 48000,
+  "maxResponseBytes": 48000,
+  "automaticPromotion": false,
+  "automaticRelease": false,
+  "providers": {
+    "gemini": {"role":"architecture and independent review", "transport":"project-local pinned CLI; tools denied"},
+    "trae": {"role":"native UI and interaction proposals", "transport":"interactive IDE handoff; no invented headless interface"},
+    "deepseek": {"role":"algorithm review", "transport":"explicitly enabled API; key via environment; disabled without credential"},
+    "copilot": {"role":"independent patch review", "transport":"CLI with all tools denied; one prompt"},
+    "huggingface": {"role":"model provenance and license manifest", "transport":"public pinned metadata; not an invented autonomous LLM"},
+    "llama": {"role":"local bounded GGUF proposal/inference", "transport":"pinned local binary and SHA-256-verified GGUF"}
+  }
+}

@@ -18,3 +18,12 @@ App/Info.plist
 
 __pycache__/
 *.pyc
+
+# Private development state never belongs in source
+DevTeam/runtime/
+DevTeam/state/
+DevTeam/queue/
+DevTeam/jobs/
+DevTeam/candidates/
+DevTeam/receipts/
+node_modules/

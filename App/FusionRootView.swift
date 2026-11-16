@@ -4,7 +4,7 @@ import PersonalFeedFeature
 /// One active workspace at a time. This is a module boundary, not a separate OS sandbox.
 /// The personal feature exports only a View, never its records/session to the game.
 struct FusionRootView: View {
-    private enum Workspace { case hub, expedition, sensors, personal }
+    private enum Workspace { case hub, expedition, sensors, personal, arena }
     @State private var workspace: Workspace = .hub
     private var legacyUITest: Bool {
         #if DEBUG && targetEnvironment(simulator)
@@ -20,6 +20,7 @@ struct FusionRootView: View {
             else {
                 switch workspace {
                 case .hub: hub
+                case .arena: ArenaScreen(onExit: { workspace = .hub })
                 case .expedition: HomeView(onExit: { workspace = .hub })
                 case .sensors: HomeView(initialMode: 1, onExit: { workspace = .hub })
                 case .personal:
@@ -43,7 +44,7 @@ struct FusionRootView: View {
                 HStack {
                     Image(systemName: "viewfinder").font(.system(size: 30)).foregroundStyle(Palette.teal)
                     Spacer()
-                    Text("FUSION / 0.4.0").font(.system(.caption, design: .monospaced)).foregroundStyle(Palette.amber)
+                    Text("FUSION / 0.5.0").font(.system(.caption, design: .monospaced)).foregroundStyle(Palette.amber)
                 }
                 Text("WORLD.EXE").font(.system(size: 38, weight: .black, design: .monospaced))
                     .accessibilityIdentifier("fusion.title")
@@ -53,6 +54,9 @@ struct FusionRootView: View {
                 card("Экспедиции", subtitle: "Signal Siege · CONTACT вдвоём · изометрия",
                      detail: "Тактика с укрытиями, вымышленная Кира, чёрный юмор и локальный Top 10. GGUF загружается отдельно по вашему выбору.",
                      symbol: "hexagon.fill", badge: "ИГРА / ВЫМЫСЕЛ", id: "fusion.game") { workspace = .expedition }
+                card("ARENA · 3D / AR", subtitle: "iPhone 18 Pro · nearby cooperative combat",
+                     detail: "Synthetic bots, cover, two-player pairing and local mesh occlusion. Real people and private messages are not targets.",
+                     symbol: "scope", badge: "SYNTHETIC / LOCAL PAIR", id: "fusion.arena") { workspace = .arena }
                 card("Пространственная лаборатория", subtitle: "LiDAR · RoomPlan · AR-капсула в CONTACT",
                      detail: "Реальная реконструкция на совместимом iPhone. Наблюдения, техническая телеметрия и игровые события разделены.",
                      symbol: "cube.transparent", badge: "СЕНСОРЫ / ОЦЕНКА ГЕОМЕТРИИ", id: "fusion.sensors") { workspace = .sensors }

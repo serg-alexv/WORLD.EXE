@@ -14,7 +14,7 @@ import subprocess
 import sys
 import tempfile
 
-ROOT_FILES = {'.gitignore', '.gitattributes', 'AGENTS.md', 'BACKLOG.md', 'GENESIS.md', 'README.md', 'project.yml', 'LICENSE'}
+ROOT_FILES = {'.gitignore', '.gitattributes', 'AGENTS.md', 'BACKLOG.md', 'GENESIS.md', 'README.md', 'project.yml', 'LICENSE', 'world.ps1', 'WORLD.EXE.code-workspace'}
 ROOT_DIRS = {'App', 'WorldCore', 'LocalLlama', 'Dependencies', 'Benchmarks', 'UITests', 'AppUnitTests', 'docs', 'scripts', '.github'}
 TEXT_EXT = {'.swift','.c','.cc','.cpp','.h','.hpp','.m','.mm','.metal','.md','.txt','.py','.ps1','.sh','.yml','.yaml','.json','.plist','.xcprivacy','.modulemap','.xcconfig'}
 EXCLUDED_PARTS = {'.git','.build','.swiftpm','build','DerivedData','Frameworks','__pycache__','node_modules','xcuserdata'}
@@ -45,6 +45,16 @@ def allowed(name: str, tracked: bool) -> bool:
         return False
     if any(p.lower().startswith('.env') for p in path.parts):
         return False
+    if name == '.vscode/tasks.json':
+        return True
+    if path.parts and path.parts[0] == 'DevTeam':
+        if name in {'DevTeam/config/team.json', 'DevTeam/README.md'}:
+            return True
+        if any(part.lower() in {'runtime','state','private','queue','jobs','candidates','receipts','fixtures'} for part in path.parts):
+            return False
+        if name.startswith('DevTeam/docs/'):
+            return path.suffix == '.md'
+        return path.suffix == '.py' and name.startswith(('DevTeam/src/','DevTeam/tests/'))
     # Gamebox is source-only: runtime/credentials/provider data never enter snapshots.
     if path.parts and path.parts[0] == 'Gamebox':
         if name in {'Gamebox/package.json', 'Gamebox/README.md', 'Gamebox/.gitignore',
