@@ -1,5 +1,10 @@
 {
   "folders": [{"path":".","name":"WORLD.EXE only"}],
   "settings": {"security.workspace.trust.enabled":true,"files.exclude":{"**/.build":true,"**/node_modules":true},"search.exclude":{"**/.build":true,"**/build":true,"**/node_modules":true}},
-  "extensions": {"recommendations":[]}
+"extensions": {
+	"recommendations": []
+},
+"trae": {
+	"workspaceId": "7e66010e074d6b48ab56c1798728c7ee"
+}
 }
